@@ -16,7 +16,8 @@ from scipy import optimize
 from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
-from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
+# from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_trgl import iPEPS, iPEPS_exci
 from adpeps.utils import io
 from adpeps.utils.printing import print
 
@@ -73,6 +74,9 @@ def run(config_file: str):
         v = loaded_sim["v"]
         gradnorms = list(loaded_sim["gradnorms"])
         energies = list(loaded_sim["energies"])
+        # key = random.PRNGKey(sim_config.seed)
+        # v = random.normal(key, (peps.numel(),))
+        # v = v / np.max(np.abs(v))
         print("Resuming existing simulation")
         verbose(v)
     else:

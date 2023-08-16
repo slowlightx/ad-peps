@@ -1,4 +1,5 @@
 from math import pi
+from math import sqrt
 
 import numpy as np
 
@@ -6,7 +7,36 @@ import numpy as np
 def make_momentum_path(name, with_plot_info=False):
     n_per_piece = 5
     plot_info = {}
-
+    if name == "Briltrgl":
+        kxs = np.concatenate(
+            [
+                lin_ex(pi / sqrt(3), 0, 2 * n_per_piece),
+                lin_ex(0, 2 * pi / sqrt(3), 2 * n_per_piece),
+                lin_ex(2 * pi / sqrt(3), 2 * pi / sqrt(3), n_per_piece),
+                np.linspace(2 * pi/ sqrt(3), pi / sqrt(3), n_per_piece),
+            ]
+        )
+        kys = np.concatenate(
+            [
+                lin_ex(pi, 0, 2 * n_per_piece),
+                lin_ex(0, 0, 2 * n_per_piece),
+                lin_ex(0, 2 * pi / 3, n_per_piece),
+                np.linspace(2 * pi / 3, pi, n_per_piece),
+            ]
+        )
+        if with_plot_info:
+            plot_info["xticks"] = {
+                "ticks": [0, 9, 18, 22, 26],
+                "labels": [
+                    "$M1(\pi/\sqrt{3},\pi)$",
+                    "$\Gamma(0,0)$",
+                    "$M2(2\pi/\sqrt{3},0)$",
+                    "$K(2\pi/\sqrt{3},2\pi/3)$",
+                    "$M1(\pi/\sqrt{3},\pi)$",
+                ],
+            }
+            return kxs, kys, plot_info
+        return kxs, kys
     if name == "Bril1":
         kxs = np.concatenate(
             [

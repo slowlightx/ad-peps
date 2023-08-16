@@ -4,8 +4,8 @@
 # Simulation options
 # -> ipeps/config.py
 D:             2
-chi:           41
-model:         'heisenberg'
+chi:           40
+model:         'xxz_trgl'
 
 # Prefix for output file
 out_prefix:
@@ -15,6 +15,9 @@ resume:        False
 
 model_params:
   J:           1
+  Delta:       1
+  J2:          0
+  sl_rot:      "non_unitary"
 
 # Set to 0 to suppress all output besides printing each step
 disp_level:    1
@@ -34,9 +37,10 @@ flush_output:  True
 # Unit cell pattern (Neel order)
 pattern:
   [
-    [0,1],
-    [1,0],
+    [0,1,2],
+    [1,2,0],
+    [2,0,1],
   ]
 
 # Excitations
-momentum_path: 'Bril1'
+momentum_path: 'Briltrgl'

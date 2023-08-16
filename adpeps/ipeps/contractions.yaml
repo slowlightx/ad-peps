@@ -240,6 +240,29 @@ dm_right:
 dm_roh:
   [[1,2,-1,-3,5,6], [1,2,-2,-4,5,6]]
 
+# Diagonal density matrix in direction (-1, 1)
+# Upper left patch
+dm_upper_left:
+  [[1,2], [-1,1,3,4], [2,-6,5,6], [-7,-2,3,5,-4], [-8,-3,4,6,-5]]
+# Upper right patch with physical indices left open
+dm_upper_right_traced:
+  [[1,-1,2,3], [1,4], [4,-6,5,6], [7,5,2,-2,-4], [7,6,3,-3,-5]]
+# Lower left patch with physical indices left open
+dm_lower_left_traced:
+  [[1,2], [-6,1,3,4], [-1,2,5,6], [7,-4,-2,5,3], [7,-5,-3,6,4]]
+# Lower right patch
+dm_lower_right:
+  [[1,2], [-1,1,3,4], [2,-6,5,6], [-7,3,-2,-4,5], [-8,4,-3,-5,6]]
+# Upper half from contracted upper left patch and un-contracted upper right patch
+dm_upper_rod:
+  [[1,2,3,-1,-2,-3,-7,-8], [1,2,3,-4,-5,-6]]
+# Lower half from un-contracted lower left patch and contracted lower right patch
+dm_lower_rod:
+  [[-1,-2,-3,1,2,3], [-4,-5,-6,1,2,3,-7,-8]]
+dm_rod:
+  [[1,2,3,4,5,6,-1,-3], [3,1,2,6,4,5,-2,-4]]
+
+# TODO: 2x2 patches with more than 2 sites with open physical indices
 
 #   ---------------------
 #   Reduced density matrices - odd-fermionic excitation variant
