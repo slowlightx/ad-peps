@@ -48,7 +48,6 @@ import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
 from adpeps.ipeps import evaluation_triangular as evaluation
-
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -93,6 +92,7 @@ class iPEPS:
         Returns:
             energy of iPEPS
         """
+        self.reinit_env = False
 
         if params is not None:
             self.fill(params)
@@ -214,7 +214,7 @@ class iPEPS_exci(iPEPS):
 
     def substract_gs_energy(self):
         E, _ = evaluation.get_gs_energy(self.H, self.tensors)
-        E = E / 2
+        E = E / 3
         print(f"Substracting {E} from Hamiltonian", level=1)
         self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
         # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)

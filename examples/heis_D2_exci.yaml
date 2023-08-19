@@ -4,7 +4,7 @@
 # Simulation options
 # -> ipeps/config.py
 D:             2
-chi:           41
+chi:           40
 model:         'heisenberg'
 
 # Prefix for output file

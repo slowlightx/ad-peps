@@ -10,29 +10,29 @@ def make_momentum_path(name, with_plot_info=False):
     if name == "Briltrgl":
         kxs = np.concatenate(
             [
-                lin_ex(pi / sqrt(3), 0, 2 * n_per_piece),
+                lin_ex(2 * pi / sqrt(3), 0, 2 * n_per_piece),
                 lin_ex(0, 2 * pi / sqrt(3), 2 * n_per_piece),
-                lin_ex(2 * pi / sqrt(3), 2 * pi / sqrt(3), n_per_piece),
-                np.linspace(2 * pi/ sqrt(3), pi / sqrt(3), n_per_piece),
+                lin_ex(2 * pi / sqrt(3), pi / sqrt(3), n_per_piece),
+                np.linspace(pi/ sqrt(3), pi / sqrt(3), 2 * n_per_piece),
             ]
         )
         kys = np.concatenate(
             [
-                lin_ex(pi, 0, 2 * n_per_piece),
                 lin_ex(0, 0, 2 * n_per_piece),
-                lin_ex(0, 2 * pi / 3, n_per_piece),
-                np.linspace(2 * pi / 3, pi, n_per_piece),
+                lin_ex(0, 2 * pi / 3, 2 * n_per_piece),
+                lin_ex(2 * pi / 3, pi, n_per_piece),
+                np.linspace(pi, 0, 2 * n_per_piece),
             ]
         )
         if with_plot_info:
             plot_info["xticks"] = {
-                "ticks": [0, 9, 18, 22, 26],
+                "ticks": [0, 9, 18, 22, 31],
                 "labels": [
-                    "$M1(\pi/\sqrt{3},\pi)$",
-                    "$\Gamma(0,0)$",
-                    "$M2(2\pi/\sqrt{3},0)$",
-                    "$K(2\pi/\sqrt{3},2\pi/3)$",
-                    "$M1(\pi/\sqrt{3},\pi)$",
+                    r"$M(\frac{2\pi}{\sqrt{3}},0)$",
+                    r"$\Gamma(0,0)$",
+                    r"$K(\frac{2\pi}{\sqrt{3}},\frac{2\pi}{3})$"
+                    r"$M2(\frac{\pi}{\sqrt{3}},\pi)$",
+                    r"$Y(\frac{\pi}{\sqrt{3}},0)$",
                 ],
             }
             return kxs, kys, plot_info

@@ -62,9 +62,9 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
                 nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
                 # print(nrmh)
-                nrmhs[0, 1] = nrmh
+                nrmhs[0, 0] = nrmh
                 nrmvs[0, 0] = nrmv
-                nrmds[1, 1] = nrmd
+                nrmds[1, 0] = nrmd
                 roh = roh / nrmh
                 rov = rov / nrmv
                 rod = rod / nrmd
@@ -75,9 +75,9 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 # Ehs[0, 1] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Eds[1, 1] = ncon([rod, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Ehs[0, 1] = ncon([roh, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Ehs[0, 0] = ncon([roh, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Evs[0, 0] = ncon([rov, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Eds[1, 1] = ncon([rod, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Eds[1, 0] = ncon([rod, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # if measure_obs:
                 #     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
                 #     for obs_i,obs in enumerate(tensors.observables):
@@ -360,9 +360,9 @@ def get_dms(ts, only_gs=False):
     The horizontal and vertical dms are located with respect
     to site (0,0) as follows:
 
-    A_up (0,0)
-     |            \
-    A_mid (0,1) -- A_right(1,1)
+    A_up (0,0) -- A_right(1,0)
+     |           /
+    A_mid (0,1)
     """
 
     if only_gs:
@@ -409,38 +409,38 @@ def get_dms(ts, only_gs=False):
     ]
 
     # Tensors that are part of the horizontal reduced density matrix
-    h_tensors = [
-        C1[-1, 0],
-        C2[2, 0],
-        C3[2, 2],
-        C4[-1, 2],
-        T1[0, 0],
-        T1[1, 0],
-        T2[2, 1],
-        T3[0, 2],
-        T3[1, 2],
-        T4[-1, 1],
-        A[0, 1],
-        A[1, 1],
-        Ad[0, 1],
-        Ad[1, 1],
-    ]
     # h_tensors = [
-    #     C1[-1, -1],
-    #     C2[2, -1],
-    #     C3[2, 1],
-    #     C4[-1, 1],
-    #     T1[0, -1],
-    #     T1[1, -1],
-    #     T2[2, 0],
-    #     T3[0, 1],
-    #     T3[1, 1],
-    #     T4[-1, 0],
-    #     A[0, 0],
-    #     A[1, 0],
-    #     Ad[0, 0],
-    #     Ad[1, 0],
+    #     C1[-1, 0],
+    #     C2[2, 0],
+    #     C3[2, 2],
+    #     C4[-1, 2],
+    #     T1[0, 0],
+    #     T1[1, 0],
+    #     T2[2, 1],
+    #     T3[0, 2],
+    #     T3[1, 2],
+    #     T4[-1, 1],
+    #     A[0, 1],
+    #     A[1, 1],
+    #     Ad[0, 1],
+    #     Ad[1, 1],
     # ]
+    h_tensors = [
+        C1[-1, -1],
+        C2[2, -1],
+        C3[2, 1],
+        C4[-1, 1],
+        T1[0, -1],
+        T1[1, -1],
+        T2[2, 0],
+        T3[0, 1],
+        T3[1, 1],
+        T4[-1, 0],
+        A[0, 0],
+        A[1, 0],
+        Ad[0, 0],
+        Ad[1, 0],
+    ]
 
     # Tensors that are part of the diagonal reduced density matrix
     d_tensors = [
@@ -492,9 +492,12 @@ def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):
     Cc2 = ncon([Cc1, Cc2], "dm_up")
 
     # Lower half
-    delta_k = -px/2+np.sqrt(3)*py/2
-    Cc1 = ncon([C4.shift(delta_k), T3.shift(delta_k), T4d.shift(delta_k), Ad.shift(delta_k)], "dm_low_Cc1")
-    Cc3 = ncon([C3.shift(delta_k), T2d.shift(delta_k), Add.shift(delta_k)], "dm_low_Cc3")
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    py_mod = np.sqrt(3)*px/2-py/2
+    Cc1 = ncon([C4.shift(py_mod), T3.shift(py_mod), T4d.shift(py_mod), Ad.shift(py_mod)], "dm_low_Cc1")
+    Cc3 = ncon([C3.shift(py_mod), T2d.shift(py_mod), Add.shift(py_mod)], "dm_low_Cc3")
     Cc3 = ncon([Cc1, Cc3], "dm_low")
 
     # Contract
@@ -505,20 +508,28 @@ def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):
 def _get_dm_h(C1, C2, C3, C4, T1l, T1r, T2, T3l, T3r, T4, Al, Ar, Adl, Adr):
     """Regular variant
 
-    A_mid (0,0) -- A_right (1,0)
+    A_left (0,0) -- A_right (1,0)
     """
     px = sim_config.px
-
+    py = sim_config.py
     # Left half
     Cc1 = ncon([C4, T3l, T4, Al], "dm_low_Cc1")
     Cc2 = ncon([C1, T1l, Adl], "dm_left_Cc2")
     Cc2 = ncon([Cc1, Cc2], "dm_left")
 
     # Right half
-    Cc1 = ncon([C2.shift(px), T1r.shift(px), Ar.shift(px)], "dm_right_Cc1")
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    px_mod = np.sqrt(3)*px/2+py/2
+    Cc1 = ncon([C2.shift(px_mod), T1r.shift(px_mod), Ar.shift(px_mod)], "dm_right_Cc1")
     Cc3 = ncon(
-        [C3.shift(px), T2.shift(px), T3r.shift(px), Adr.shift(px)], "dm_right_Cc3"
+        [C3.shift(px_mod), T2.shift(px_mod), T3r.shift(px_mod), Adr.shift(px_mod)], "dm_right_Cc3"
     )
+    # Cc1 = ncon([C2.shift(px), T1r.shift(px), Ar.shift(px)], "dm_right_Cc1")
+    # Cc3 = ncon(
+    #     [C3.shift(px), T2.shift(px), T3r.shift(px), Adr.shift(px)], "dm_right_Cc3"
+    # )
     Cc3 = ncon([Cc1, Cc3], "dm_right")
 
     # Contract
@@ -535,21 +546,23 @@ def _get_dm_d(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, 
     """
     px = sim_config.px
     py = sim_config.py
-
-    delta_k1 = -px/2+np.sqrt(3)*py/2
-    delta_k2 = px/2+np.sqrt(3)*py/2
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    px_mod = np.sqrt(3)*px/2+py/2
+    py_mod = np.sqrt(3)*px/2-py/2
     # Upper left
-    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left")  # contract
+    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")  # contract
     # Upper right
-    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right_traced")
+    patch_upper_right = ncon([T1r.shift(px_mod), C2.shift(px_mod), T2u.shift(px_mod), Aur.shift(px_mod), Adur.shift(px_mod)], "dm_upper_right")
     # Contract for upper half
     upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_rod")
 
     # Lower left
-    patch_lower_left = ncon([C4.shift(delta_k1), T3l.shift(delta_k1), T4d.shift(delta_k1), Adl.shift(delta_k1), Addl.shift(delta_k1)], "dm_lower_left_traced")
+    patch_lower_left = ncon([C4.shift(py_mod), T3l.shift(py_mod), T4d.shift(py_mod), Adl.shift(py_mod), Addl.shift(py_mod)], "dm_lower_left")
 
     # Lower right
-    patch_lower_right = ncon([C3.shift(delta_k2), T2d.shift(delta_k2), T3r.shift(delta_k2), Adr.shift(delta_k2), Addr.shift(delta_k2)], "dm_lower_right")
+    patch_lower_right = ncon([C3.shift(px_mod).shift(py_mod), T2d.shift(px_mod).shift(py_mod), T3r.shift(px_mod).shift(py_mod), Adr.shift(px_mod).shift(py_mod), Addr.shift(px_mod).shift(py_mod)], "dm_lower_right_traced")
 
     # Contract for lower half
     lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_rod")

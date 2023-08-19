@@ -90,7 +90,7 @@ class iPEPS:
         Returns:
             energy of iPEPS
         """
-        self.reinit_env = False
+        # self.reinit_env = False
 
         if params is not None:
             self.fill(params)
