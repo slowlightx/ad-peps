@@ -52,6 +52,7 @@ from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
+from adpeps.utils import io
 
 from .ctm import run_ctm
 
@@ -70,10 +71,14 @@ class iPEPS:
 
         # Initialize tensors
         self.d = self.H.shape[0]
-        A = init_A_tensor(self.d, sim_config.D, sim_config.pattern)
+        if sim_config.init_from_tensors:
+            filename = io.get_gs_raw_tensors_file()
+            A = init_A_tensor_from_tntorch(sim_config.pattern, filename=filename)
+        else:
+            A = init_A_tensor(self.d, sim_config.D, sim_config.pattern)
         A = A.normalize()
         Ad = A.conj()
-        Cs, Ts = init_ctm_tensors(A, A)
+        Cs, Ts = init_ctm_tensors(A, Ad)
         self.tensors = CTMTensors(A, Ad, Cs, Ts)
         self.base_Cs, self.base_Ts = None, None
 
@@ -117,12 +122,17 @@ class iPEPS:
         # Stop downstream gradient tracking for iPEPS tensors,
         # so they become regular arrays that can be saved
         self.tensors.stop_gradient(only_boundaries=False)
-
+        # # no_grad
+        # obs = self.evaluate_obs()
         return res
 
     def compute_energy(self, tensors):
         E, _ = evaluation.get_gs_energy(self.H, tensors)
         return E
+
+    def compute_obs(self, tensors):
+        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        return obs
 
     def converge_boundaries(self):
         """Performs CTM on the boundary tensors until convergence,
@@ -157,6 +167,19 @@ class iPEPS:
         E = self.compute_energy(self.tensors)
         print("Energy:", jax.lax.stop_gradient(E).item())
         return E
+
+    def evaluate_obs(self):
+        obs = self.compute_obs(self.tensors)
+        obs_vals = []
+        obs_names = []
+        s_names = ["Sx", "Sy", "Sz"]
+        for pos in [0, 1, -1]:
+            for i in range(3):
+                obs_vals.append(obs[i][pos, 0].real)
+                obs_names.append(f"{s_names[i]}{pos%3}")
+        print("Obs Expr:" + ", ".join([f"{v}" for v in obs_names]))
+        print("Obs: " + ", ".join([f"{v}" for v in obs_vals]))
+        return obs_vals
 
     """ Input/output methods """
 
@@ -283,6 +306,24 @@ def init_A_tensor(d, D, pattern):
                 if not A.is_changed(0, 0):
                     key, subkey = random.split(key)
                     A[0, 0] = random.normal(key, (d, D, D, D, D))
+    return A
+
+
+def init_A_tensor_from_tntorch(pattern, filename=None):
+    """
+    The elements will be initialized by tensors pre-optimized by tn-torch
+    """
+    loaded_sites = np.load(filename, allow_pickle=True)
+    site_tensors = loaded_sites["sites"].item()
+    print(r"Loaded tensors from "+str(filename))
+    with set_pattern(pattern):
+        A = TList()
+
+    for i in range(A.size[0]):
+        for j in range(A.size[1]):
+            with cur_loc(i, j):
+                if not A.is_changed(0, 0):
+                    A[0, 0] = site_tensors[int(A.pattern[i, j])]
     return A
 
 

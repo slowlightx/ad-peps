@@ -24,16 +24,22 @@ def setup():
     return H, obs
 
 
-def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, q=1./3, B_ext=0):
+def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, anisotropy=None, q=1./3, B_ext=0):
     """Heisenberg model"""
     Rot_op = sc.linalg.expm((2*np.pi*q)*(sigmap - sigmam))
-    H = (
-        tprod(sigmaz, sigmaz) / 4
-        + (Delta + 1) * (tprod(sigmap, sigmam)
-                         + tprod(sigmam, sigmap)) / 4
-        + (Delta - 1) * (tprod(sigmap, sigmap)
-                         + tprod(sigmam, sigmam)) / 4
-    )
+    if anisotropy == "sy":
+        H = J * (
+            tprod(sigmaz, sigmaz) / 4
+            + (1 + Delta) * (tprod(sigmap, sigmam)
+                            + tprod(sigmam, sigmap)) / 4
+            + (1 - Delta) * (tprod(sigmap, sigmap)
+                            + tprod(sigmam, sigmam)) / 4
+        )
+    else:
+        H = J * (
+            Delta * tprod(sigmaz, sigmaz) / 4
+            + (tprod(sigmap, sigmam) + tprod(sigmam, sigmap)) / 2
+        )
     # H = (
     #     tprod(sigmaz, sigmaz) / 4
     #     + (tprod(sigmap, sigmam) + tprod(sigmam, sigmap)) / 2
@@ -47,7 +53,7 @@ def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, q=1./3, B_ext=0):
         pattern = np.array([[0]])
     else:
         H_nn_h, H_nn_v, H_nn_diag, H_nnn_h, H_nnn_v, H_nnn_diag = J*H, J*H, J*H, J2*H, J2*H, J2*H
-        pattern = np.array([[0, 1, 2], [1, 2, 0], [2, 0, 1]])
+        pattern = np.array([[0, 1, 2], [2, 0, 1], [1, 2, 0]])
     # H = Hamiltonian(pattern=pattern)
     #
     # H.fill((1, 0), H_nn_h, tag="H_nn_h")  # H_nn_h
@@ -55,6 +61,10 @@ def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, q=1./3, B_ext=0):
     # H.fill((1, 1), H_nn_diag, tag="H_nn_diag")  # H_nn_diag
 
     return H
+
+
+def make_obs(spin=0.5):
+    return 0.5 * (sigmap + sigmam), 0.5j * (sigmam - sigmap), 0.5 * sigmaz
 
 
 def tprod(a, b):

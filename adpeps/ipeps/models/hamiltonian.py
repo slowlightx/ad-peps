@@ -8,8 +8,9 @@ class LocalHamiltonian(dict):
 
 
 class Hamiltonian:
-    def __init__(self, H_base=None, pattern=None):
+    def __init__(self, H_base=None, pattern=None, unit_cell=None):
         self.shape = None
+        self.unit_cell = unit_cell
         self._H = TList(pattern=pattern)
         for i in range(len(self._H)):
             self._H._data[i] = LocalHamiltonian()
@@ -73,7 +74,10 @@ class Hamiltonian:
         dx = ix[1][0] - ix[0][0]
         dy = ix[1][1] - ix[0][1]
         # print(f"Getting {ix[0]} with shape {(dx,dy)}")
-        return self._H[ix[0]].get((dx, dy), EmptyT())
+        # return self._H[ix[0]].get((dx, dy), EmptyT())
+        # print(ix)
+        # print(self._H[ix[0]].keys())
+        return self._H[ix[0]].get((dx, dy))
 
     def fill(self, shape, H_term, tag=None):
         for h in self._H:

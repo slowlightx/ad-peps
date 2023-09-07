@@ -11,7 +11,7 @@ model:         'xxz_trgl'
 out_prefix:
 
 # Resume earlier simulation if found
-resume:        False
+resume:        True
 
 model_params:
   J:           1
@@ -23,7 +23,7 @@ model_params:
 disp_level:    1
 
 # CTM convergence criterium (singular values norm difference)
-ctm_conv_tol:  1.e-6
+ctm_conv_tol:  1.e-8
 
 # Minimal number of CTM steps
 ctm_min_iter:  4
@@ -43,4 +43,4 @@ pattern:
   ]
 
 # Excitations
-momentum_path: 'Briltrgl'
+momentum_path: 'Bril-trgl'

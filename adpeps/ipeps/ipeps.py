@@ -71,7 +71,7 @@ class iPEPS:
         A = init_A_tensor(self.d, sim_config.D, sim_config.pattern)
         A = A.normalize()
         Ad = A.conj()
-        Cs, Ts = init_ctm_tensors(A, A)
+        Cs, Ts = init_ctm_tensors(A, Ad)
         self.tensors = CTMTensors(A, Ad, Cs, Ts)
         self.base_Cs, self.base_Ts = None, None
 

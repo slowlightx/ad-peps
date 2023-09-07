@@ -49,6 +49,13 @@ def get_gs_file():
     filename = Path("gs", filename)
     return localize_data_file(filename).with_suffix(".npz")
 
+def get_gs_raw_tensors_file():
+    if sim_config.out_prefix is not None:
+        filename = f"{sim_config.out_prefix}_{sim_config.model}_D{sim_config.D}_X{sim_config.chi}"
+    else:
+        filename = f"{sim_config.model}_D{sim_config.D}_X{sim_config.chi}_raw"
+    filename = Path("gs", filename)
+    return localize_data_file(filename).with_suffix(".npz")
 
 def get_exci_folder():
     if sim_config.out_prefix is not None:

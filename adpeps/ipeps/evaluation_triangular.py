@@ -11,6 +11,7 @@ from adpeps.utils.empty_tensor import EmptyT
 from adpeps.utils.nested import Nested
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
+from .models.common import sigmam, sigmap, sigmaz, id2
 
 """
     Evaluation module for iPEPS simulations
@@ -51,7 +52,8 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     nrmhs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
     nrmvs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
     nrmds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
-    obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
+    # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
+    obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
 
     for i in A.x_major():
         with cur_loc(i):
@@ -78,24 +80,32 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 Ehs[0, 0] = ncon([roh, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Evs[0, 0] = ncon([rov, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Eds[1, 0] = ncon([rod, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # if measure_obs:
-                #     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
-                #     for obs_i,obs in enumerate(tensors.observables):
-                #         if obs.size == 1:
-                #             try:
-                #                 obs_ev = ncon([ro_one, obs.operator], ([1,2],[1,2]))
-                #                 print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.item()}", level=2)
-                #                 obs_evs[obs_i][0,0] = obs_ev.item()
-                #             except:
-                #                 obs_evs[obs_i][0,0] = np.nan
-                #         elif obs.size == 2:
-                #             try:
-                #                 obs_ev_h = ncon([roh, obs.operator], ([1,2,3,4],[1,2,3,4]))
-                #                 obs_ev_v = ncon([rov, obs.operator], ([1,2,3,4],[1,2,3,4]))
-                #                 print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev_h.item()}, {obs_ev_v.item()}", level=2)
-                #                 obs_evs[obs_i][0,0] = (obs_ev_h.item(), obs_ev_v.item())
-                #             except:
-                #                 obs_evs[obs_i][0,0] = (np.nan, np.nan)
+                if measure_obs:
+                    ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
+                    for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
+                        try:
+                            obs_ev = ncon([ro_one, obs], ([1, 2], [1, 2]))
+                            norm = ncon([ro_one, id2], ([1, 2], [1, 2]))
+                            obs_evs[obs_i][0, 0] = obs_ev / norm
+                        except:
+                            obs_evs[obs_i][0, 0] = np.nan
+                    # for obs_i, obs in enumerate(tensors.observables):
+                    #     if obs.size == 1:
+                    #         try:
+                    #             obs_ev = ncon([ro_one, obs.operator], ([1,2],[1,2]))
+                    #             # print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.item()}", level=2)
+                    #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.astype(float)}", level=2)
+                    #             obs_evs[obs_i][0,0] = obs_ev.astype(float)
+                    #         except:
+                    #             obs_evs[obs_i][0,0] = np.nan
+                    #     elif obs.size == 2:
+                    #         try:
+                    #             obs_ev_h = ncon([roh, obs.operator], ([1,2,3,4],[1,2,3,4]))
+                    #             obs_ev_v = ncon([rov, obs.operator], ([1,2,3,4],[1,2,3,4]))
+                    #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev_h.item()}, {obs_ev_v.item()}", level=2)
+                    #             obs_evs[obs_i][0,0] = (obs_ev_h.item(), obs_ev_v.item())
+                    #         except:
+                    #             obs_evs[obs_i][0,0] = (np.nan, np.nan)
                 # print(Ehs[0, 1], Evs[0, 0], Eds[1, 1], level=2)
     # try:
     #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
@@ -495,9 +505,8 @@ def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):
     # distortion of momentum
     # [[\sqrt{3}/2,  1/2]
     #  [\sqrt{3}/2, -1/2]]
-    py_mod = np.sqrt(3)*px/2-py/2
-    Cc1 = ncon([C4.shift(py_mod), T3.shift(py_mod), T4d.shift(py_mod), Ad.shift(py_mod)], "dm_low_Cc1")
-    Cc3 = ncon([C3.shift(py_mod), T2d.shift(py_mod), Add.shift(py_mod)], "dm_low_Cc3")
+    Cc1 = ncon([C4.shift(py), T3.shift(py), T4d.shift(py), Ad.shift(py)], "dm_low_Cc1")
+    Cc3 = ncon([C3.shift(py), T2d.shift(py), Add.shift(py)], "dm_low_Cc3")
     Cc3 = ncon([Cc1, Cc3], "dm_low")
 
     # Contract
@@ -521,15 +530,10 @@ def _get_dm_h(C1, C2, C3, C4, T1l, T1r, T2, T3l, T3r, T4, Al, Ar, Adl, Adr):
     # distortion of momentum
     # [[\sqrt{3}/2,  1/2]
     #  [\sqrt{3}/2, -1/2]]
-    px_mod = np.sqrt(3)*px/2+py/2
-    Cc1 = ncon([C2.shift(px_mod), T1r.shift(px_mod), Ar.shift(px_mod)], "dm_right_Cc1")
+    Cc1 = ncon([C2.shift(px), T1r.shift(px), Ar.shift(px)], "dm_right_Cc1")
     Cc3 = ncon(
-        [C3.shift(px_mod), T2.shift(px_mod), T3r.shift(px_mod), Adr.shift(px_mod)], "dm_right_Cc3"
+        [C3.shift(px), T2.shift(px), T3r.shift(px), Adr.shift(px)], "dm_right_Cc3"
     )
-    # Cc1 = ncon([C2.shift(px), T1r.shift(px), Ar.shift(px)], "dm_right_Cc1")
-    # Cc3 = ncon(
-    #     [C3.shift(px), T2.shift(px), T3r.shift(px), Adr.shift(px)], "dm_right_Cc3"
-    # )
     Cc3 = ncon([Cc1, Cc3], "dm_right")
 
     # Contract
@@ -554,15 +558,15 @@ def _get_dm_d(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, 
     # Upper left
     patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")  # contract
     # Upper right
-    patch_upper_right = ncon([T1r.shift(px_mod), C2.shift(px_mod), T2u.shift(px_mod), Aur.shift(px_mod), Adur.shift(px_mod)], "dm_upper_right")
+    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right")
     # Contract for upper half
     upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_rod")
 
     # Lower left
-    patch_lower_left = ncon([C4.shift(py_mod), T3l.shift(py_mod), T4d.shift(py_mod), Adl.shift(py_mod), Addl.shift(py_mod)], "dm_lower_left")
+    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left")
 
     # Lower right
-    patch_lower_right = ncon([C3.shift(px_mod).shift(py_mod), T2d.shift(px_mod).shift(py_mod), T3r.shift(px_mod).shift(py_mod), Adr.shift(px_mod).shift(py_mod), Addr.shift(px_mod).shift(py_mod)], "dm_lower_right_traced")
+    patch_lower_right = ncon([C3.shift(px).shift(py), T2d.shift(px).shift(py), T3r.shift(px).shift(py), Adr.shift(px).shift(py), Addr.shift(px).shift(py)], "dm_lower_right_traced")
 
     # Contract for lower half
     lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_rod")
@@ -570,3 +574,19 @@ def _get_dm_d(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, 
     # Contract upper and lower halves
     rod = ncon([upper_half, lower_half], "dm_rod")
     return rod
+
+
+def get_one_site_dm(Cs, Ts, A, Ad):
+    # Tensors that are part of 1-site reduced density matrix
+    C1 = Cs[0][-1, -1]
+    C2 = Cs[1][1, -1]
+    C3 = Cs[2][1, 1]
+    C4 = Cs[3][-1, 1]
+    T1 = Ts[0][0, -1]
+    T2 = Ts[1][1, 0]
+    T3 = Ts[2][0, 1]
+    T4 = Ts[3][-1, 0]
+
+    ro1_no_op = ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
+    ro1 = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1,2,3,4,5,6,7,8], [-1,1,2,3,4], [-2,5,6,7,8]))
+    return ro1

@@ -6,7 +6,7 @@ import argparse
 
 from jax.config import config
 
-from .simulation import run_ipeps_exci, run_ipeps_gs
+from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci
 
 config.update("jax_enable_x64", True)
 
@@ -50,9 +50,15 @@ def get_parser():
         type=str,
         help="Configuration (.yml) file for the simulation options",
     )
+    parser_gs.add_argument(
+        "-l_gs", "--lattice_gs", dest="lat_gs", type=str, default="square", help="type of lattice"
+    )
 
     # Excited-state parser
     parser_exci = subparsers.add_parser("exci", help="Excited-state simulation")
+    parser_exci.add_argument(
+        "-l", "--lattice", dest="lat", type=str, default="square", help="type of lattice"
+    )
     parser_exci.add_argument(
         "config_file", type=str, help="config file of excited-state simulation"
     )
@@ -81,19 +87,56 @@ if __name__ == "__main__":
         print("Adpeps version:")
         print(adpeps.__version__)
 
+    # elif args.sim_mode == "gs":
+    #     print("Running ground-state sim")
+    #     args.config_file = io.localize_config_file(args.config_file)
+    #     run_ipeps_gs.run(args.config_file)
+    #
+    # elif args.sim_mode == "exci":
+    #     print("Running excited-state sim")
+    #     print(args.config_file)
+    #     args.config_file = io.localize_config_file(args.config_file)
+    #     print(args.config_file)
+    #     if args.evaluate:
+    #         run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)
+    #     elif args.init:
+    #         run_ipeps_exci.prepare(args.config_file)
+    #     else:
+    #         run_ipeps_exci.run(args.config_file, args.momentum_ix - 1)
+
     elif args.sim_mode == "gs":
         print("Running ground-state sim")
         args.config_file = io.localize_config_file(args.config_file)
-        run_ipeps_gs.run(args.config_file)
+        if args.lat_gs == "trgl":
+            run_ipeps_trgl_gs.run(args.config_file)
+        elif args.lat_gs == "dstt_trgl":
+            run_ipeps_dstt_trgl_gs.run(args.config_file)
+        else:
+            run_ipeps_gs.run(args.config_file)
 
     elif args.sim_mode == "exci":
         print("Running excited-state sim")
         print(args.config_file)
         args.config_file = io.localize_config_file(args.config_file)
         print(args.config_file)
-        if args.evaluate:
-            run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)
-        elif args.init:
-            run_ipeps_exci.prepare(args.config_file)
+        if args.lat == "trgl":
+            if args.evaluate:
+                run_ipeps_trgl_exci.evaluate(args.config_file, args.momentum_ix - 1)
+            elif args.init:
+                run_ipeps_trgl_exci.prepare(args.config_file)
+            else:
+                run_ipeps_trgl_exci.run(args.config_file, args.momentum_ix - 1)
+        elif args.lat == "dstt_trgl":
+            if args.evaluate:
+                run_ipeps_dstt_trgl_exci.evaluate(args.config_file, args.momentum_ix - 1)
+            elif args.init:
+                run_ipeps_dstt_trgl_exci.prepare(args.config_file)
+            else:
+                run_ipeps_dstt_trgl_exci.run(args.config_file, args.momentum_ix - 1)
         else:
-            run_ipeps_exci.run(args.config_file, args.momentum_ix - 1)
+            if args.evaluate:
+                run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)
+            elif args.init:
+                run_ipeps_exci.prepare(args.config_file)
+            else:
+                run_ipeps_exci.run(args.config_file, args.momentum_ix - 1)

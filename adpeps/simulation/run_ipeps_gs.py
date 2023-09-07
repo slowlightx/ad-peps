@@ -16,8 +16,7 @@ from scipy import optimize
 from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
-# from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
-from adpeps.ipeps.ipeps_trgl import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
 from adpeps.utils import io
 from adpeps.utils.printing import print
 
@@ -49,6 +48,8 @@ def run(config_file: str):
             for i, E in enumerate(energies)
         ]
         print("\n")
+        print("Obs for current step:")
+        peps.evaluate_obs()
         np.savez(output_file, peps=peps, v=xk, gradnorms=gradnorms, energies=energies)
 
     print("Running")
