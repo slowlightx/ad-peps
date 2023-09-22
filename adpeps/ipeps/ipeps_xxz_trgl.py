@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_j1j2_trgl as evaluation
+from adpeps.ipeps import evaluation_triangular as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -73,7 +73,6 @@ class iPEPS:
         self.d = self.H.shape[0]
         if sim_config.init_from_tensors:
             filename = io.get_gs_raw_tensors_file()
-            print(filename)
             A = init_A_tensor_from_tntorch(sim_config.pattern, filename=filename)
         else:
             A = init_A_tensor(self.d, sim_config.D, sim_config.pattern)

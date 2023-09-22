@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_j1j2_trgl as evaluation
+from adpeps.ipeps import evaluation_j1j2_trgl_grp as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -70,7 +70,7 @@ class iPEPS:
         self.H, self.observables = model.setup()
 
         # Initialize tensors
-        self.d = self.H.shape[0]
+        self.d = self.H.shape[0] ** 3
         if sim_config.init_from_tensors:
             filename = io.get_gs_raw_tensors_file()
             print(filename)
@@ -240,7 +240,10 @@ class iPEPS_exci(iPEPS):
         E, _ = evaluation.get_gs_energy(self.H, self.tensors)
         E = E / 3
         print(f"Substracting {E} from Hamiltonian", level=1)
-        self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
+        for h in self.H._H:
+            for shape, hterm in h.items():
+                h[shape] = hterm.copy() - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
+        # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
         # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
 
     def evaluate(self):

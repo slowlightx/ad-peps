@@ -51,7 +51,7 @@ def get_gs_file():
 
 def get_gs_raw_tensors_file():
     if sim_config.out_prefix is not None:
-        filename = f"{sim_config.out_prefix}_{sim_config.model}_D{sim_config.D}_X{sim_config.chi}"
+        filename = f"{sim_config.out_prefix}_{sim_config.model}_D{sim_config.D}_X{sim_config.chi}_raw"
     else:
         filename = f"{sim_config.model}_D{sim_config.D}_X{sim_config.chi}_raw"
     filename = Path("gs", filename)

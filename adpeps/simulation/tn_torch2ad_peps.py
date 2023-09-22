@@ -170,8 +170,10 @@ def read_ipeps_trgl_tntorch_1site(jsonfile, aux_seq=[3,0,1,2]):
         # sites[(2, 0)] = rot_op@(rot_op@site0)
         # sites[(1, 0)] = np.einsum('xa,xijkl->aijkl', rot_op, site0)
         # sites[(2, 0)] = np.einsum('xa,xijkl->aijkl', rot_op@rot_op, site0)
-        sites[(1, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T, site0)
-        sites[(2, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T@rot_op.T, site0)
+        # sites[(1, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T, site0)
+        # sites[(2, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T@rot_op.T, site0)
+        sites[(1, 0)] = np.einsum('ax,xijkl->aijkl', rot_op, site0)
+        sites[(2, 0)] = np.einsum('ax,xijkl->aijkl', rot_op@rot_op, site0)
         return sites
 
 
@@ -257,9 +259,14 @@ def read_bare_json_tensor_np_legacy(json_obj):
 dir = r"/Users/slowlight/PycharmProjects/tn/TensorNetwork"
 
 inputfile = rf"{dir}/triangular/states/trglC_j11.0_D2_1SITE_C4X4_state.json"
+inputfile = rf"{dir}/triangular/states/1SITE_j2_0.025_D_2_chi_64_seed_100_state.json"
 inputfile = rf"{dir}/temp/test_trgl_1site_d2_state.json"
+inputfile = rf"{dir}/temp/real_trgl_1site_0.025_d2_state.json"
+# outputfile = rf"{dir}/temp/test_trgl_3site_d2_state.json"
+
 # outputfile = rf"{dir}/ad-peps/simulations/gs/xxz_trgl_D2_X31.npz"
-outputfile = rf"{dir}/ad-peps/simulations/gs/xxz_trgl_D2_X31_raw.npz"
+outputfile = rf"{dir}/ad-peps/simulations/gs/J2_0_j1j2_trgl_D2_X40_raw.npz"
+outputfile = rf"{dir}/ad-peps/simulations/gs/J2_d025_j1j2_trgl_D2_X40_raw.npz"
 
 
 # config_file = rf"{dir}/ad-peps/examples/xxz_trgl_D2.yaml"
@@ -284,7 +291,7 @@ pattern = [
 # 1SITE
 # sites = read_ipeps_trgl_tntorch(inputfile, aux_seq=[1,2,3,0])
 sites = read_ipeps_trgl_tntorch_1site(inputfile, aux_seq=[3,0,1,2])
-coords2sublat = {(0, 0): 0, (1, 0): 1, (2, 0): 2}
+coords2sublat = {(0, 0): 0, (1, 0): 2, (2, 0): 1}
 
 new_sites = {}
 for i in sites.keys():

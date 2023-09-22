@@ -19,7 +19,7 @@ from yaml import dump, safe_load
 import adpeps.ipeps.config as sim_config
 from adpeps.ipeps.evaluation import filter_null_modes
 # from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
-from adpeps.ipeps.ipeps_xxz_trgl import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_j1j2_trgl import iPEPS, iPEPS_exci
 from adpeps.ipeps.make_momentum_path import make_momentum_path
 from adpeps.utils import io
 from adpeps.utils.printing import print

@@ -12,6 +12,7 @@ from adpeps.utils.nested import Nested
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 from .models.common import sigmam, sigmap, sigmaz, id2
+from .models.hamiltonian import Hamiltonian
 
 """
     Evaluation module for iPEPS simulations
@@ -28,9 +29,16 @@ def get_gs_energy(H, tensors):
     return E[0], nrm
 
 
+def get_gs_energy_bondwise(H, tensors):
+    """Returns ground-state energy and norm of the iPEPS"""
+    E, nrm, _, E0s = get_obs(H, tensors, measure_obs=False)
+    return E[0], nrm, E0s
+    # return E[0], nrm, _[-1]
+
+
 def get_all_energy(H, tensors):
     """Returns only energy and norm of the iPEPS"""
-    E, nrm, _ = get_obs(H, tensors, measure_obs=False)
+    E, nrm, *_ = get_obs(H, tensors, measure_obs=False)
     return E
 
 
@@ -46,45 +54,63 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     Ehs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
     Evs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
     Eds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
+    En2x1ys = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
+    En1x2ys = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
+    E1x1ys = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
     Ehs_exci = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
     Evs_exci = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
     Eds_exci = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
     nrmhs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
     nrmvs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
     nrmds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
+    nrmn2x1ys = TList(shape=A.size, pattern=A.pattern)  # NNN_3x2 terms
+    nrmn1x2ys = TList(shape=A.size, pattern=A.pattern)  # NNN_2x3 terms
+    nrm1x1ys = TList(shape=A.size, pattern=A.pattern)  # NNN Diagonal
     # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
     obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
 
+    E0s = Hamiltonian(pattern=A.pattern)
     for i in A.x_major():
         with cur_loc(i):
             if not Evs.is_changed(0, 0):
-            # if True:
-                roh, rov, rod = get_dms(tensors)
+                roh, rov, rod, ron2x1y, ron1x2y, ro1x1y = get_dms(tensors)
 
                 nrmh = np.trace(np.reshape(roh[0], (4, 4))).real
                 nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
                 nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
-                # print(nrmh)
+                nrmn2x1y = np.trace(np.reshape(ron2x1y[0], (4, 4))).real
+                nrmn1x2y = np.trace(np.reshape(ron1x2y[0], (4, 4))).real
+                nrm1x1y = np.trace(np.reshape(ro1x1y[0], (4, 4))).real
 
+                # print(nrmh)
                 nrmhs[0, 0] = nrmh
                 nrmvs[0, 0] = nrmv
                 nrmds[1, 0] = nrmd
+                nrmn2x1ys[2, 0] = nrmn2x1y
+                nrmn1x2ys[1, 0] = nrmn1x2y
+                nrm1x1ys[0, 0] = nrm1x1y
 
                 roh = roh / nrmh
                 rov = rov / nrmv
                 rod = rod / nrmd
-                # Ehs[0, 1] = ncon([roh, H[(1, 0)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Evs[0, 0] = ncon([rov, H[(0, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Eds[1, 0] = ncon([rod, H[(-1, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                ron2x1y = ron2x1y / nrmn2x1y
+                ron1x2y = ron1x2y / nrmn1x2y
+                ro1x1y = ro1x1y / nrm1x1y
 
-                # Ehs[0, 1] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Eds[1, 1] = ncon([rod, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # print(H[((0, 0), (0, 1))])
+                Ehs[0, 0] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Eds[1, 0] = ncon([rod, H[((0, 0), (-1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                En2x1ys[2, 0] = ncon([ron2x1y, H[((0, 0), (-2, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                En1x2ys[1, 0] = ncon([ron1x2y, H[((0, 0), (-1, 2))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                E1x1ys[0, 0] = ncon([ro1x1y, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
-                Ehs[0, 0] = ncon([roh, H[(0, 0), (1, 0)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Evs[0, 0] = ncon([rov, H[(0, 0), (0, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Eds[1, 0] = ncon([rod, H[(0, 0), (1, -1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                E0s[((0, 0), (1, 0))] = Ehs[0, 0][0]
+                E0s[((0, 0), (0, 1))] = Evs[0, 0][0]
+                E0s[((0, 0), (-1, 1))] = Eds[1, 0][0]
+                E0s[((0, 0), (-2, 1))] = En2x1ys[2, 0][0]
+                E0s[((0, 0), (-1, 2))] = En1x2ys[1, 0][0]
+                E0s[((0, 0), (1, 1))] = E1x1ys[0, 0][0]
+
                 if measure_obs:
                     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
                     for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
@@ -117,10 +143,12 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     # except:
     #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
     # print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
-    E = Ehs.mean() + Evs.mean() + Eds.mean()
+    E = Ehs.mean() + Evs.mean() + Eds.mean() + En2x1ys.mean() + En1x2ys.mean() + E1x1ys.mean()
+    # print(Ehs.mean())
     # nrm = 0.5 * (nrmhs.mean() + nrmvs.mean())
-    nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
-    return E, nrm, obs_evs
+    # nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
+    nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean() + nrmn2x1ys.mean() + nrmn1x2ys.mean() + nrm1x1ys.mean()) / 6.
+    return E, nrm, obs_evs, E0s
 
 
 def compute_exci_norm(tensors):
@@ -481,14 +509,74 @@ def get_dms(ts, only_gs=False):
         Ad[1, 1],
     ]
     # TODO: Tensors that are part of the plaquette (2x2 patch) reduced density matrix
+    n2x1y_tensors = [
+        C1[-1, -1],
+        C2[3, -1],
+        C3[3, 2],
+        C4[-1, 2],
+        T1[0, -1],
+        T1[1, -1],
+        T1[2, -1],
+        T2[3, 0],
+        T2[3, 1],
+        T3[0, 2],
+        T3[1, 2],
+        T3[2, 2],
+        T4[-1, 0],
+        T4[-1, 1],
+        A[0, 0],
+        A[1, 0],
+        A[2, 0],
+        A[0, 1],
+        A[1, 1],
+        A[2, 1],
+        Ad[0, 0],
+        Ad[1, 0],
+        Ad[2, 0],
+        Ad[0, 1],
+        Ad[1, 1],
+        Ad[2, 1],
+    ]
 
+    n1x2y_tensors = [
+        C1[-1, -1],
+        C2[2, -1],
+        C3[2, 3],
+        C4[-1, 3],
+        T1[0, -1],
+        T1[1, -1],
+        T2[2, 0],
+        T2[2, 1],
+        T2[2, 2],
+        T3[0, 3],
+        T3[1, 3],
+        T4[-1, 0],
+        T4[-1, 1],
+        T4[-1, 2],
+        A[0, 0],
+        A[1, 0],
+        A[0, 1],
+        A[1, 1],
+        A[0, 2],
+        A[1, 2],
+        Ad[0, 0],
+        Ad[1, 0],
+        Ad[0, 1],
+        Ad[1, 1],
+        Ad[0, 2],
+        Ad[1, 2],
+    ]
     # Regular variant
     roh = _get_dm_h(*h_tensors)
     rov = _get_dm_v(*v_tensors)
     # rop = _get_dm_p(*p_tensors)
     rod = _get_dm_d(*d_tensors)
 
-    return roh, rov, rod
+    ro1x1y = _get_dm_1x1y(*d_tensors)
+    ron2x1y = _get_dm_n2x1y(*n2x1y_tensors)
+    ron1x2y = _get_dm_n1x2y(*n1x2y_tensors)
+
+    return roh, rov, rod, ron2x1y, ron1x2y, ro1x1y
 
 
 def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):
@@ -498,7 +586,6 @@ def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):
      |
     A_mid (0,1)
     """
-    px = sim_config.px
     py = sim_config.py
 
     # Upper half
@@ -558,8 +645,6 @@ def _get_dm_d(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, 
     # distortion of momentum
     # [[\sqrt{3}/2,  1/2]
     #  [\sqrt{3}/2, -1/2]]
-    px_mod = np.sqrt(3)*px/2+py/2
-    py_mod = np.sqrt(3)*px/2-py/2
     # Upper left
     patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")  # contract
     # Upper right
@@ -571,13 +656,119 @@ def _get_dm_d(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, 
     patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left")
 
     # Lower right
-    patch_lower_right = ncon([C3.shift(px).shift(py), T2d.shift(px).shift(py), T3r.shift(px).shift(py), Adr.shift(px).shift(py), Addr.shift(px).shift(py)], "dm_lower_right_traced")
+    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], "dm_lower_right_traced")
 
     # Contract for lower half
     lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_rod")
 
     # Contract upper and lower halves
     rod = ncon([upper_half, lower_half], "dm_rod")
+    return rod
+
+
+def _get_dm_1x1y(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, Adl, Adr, Adul, Adur, Addl, Addr):
+    """Regular variant
+
+    A_lu (0,0) -- A_ru (1,0)
+     |             |
+    A_ld (0,1) -- A_rd (1,1)
+    """
+    px = sim_config.px
+    py = sim_config.py
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    # Upper left
+    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left")
+    # Upper right
+    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right_traced")
+    # Contract for upper half
+    upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_ro1x1y")
+
+    # Lower left
+    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left_traced")
+
+    # Lower right
+    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], "dm_lower_right")
+    # Contract for lower half
+    lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_ro1x1y")
+
+    # Contract upper and lower halves
+    rod = ncon([upper_half, lower_half], "dm_ro1x1y")
+    return rod
+
+
+def _get_dm_n2x1y(C1, C2, C3, C4, T1l, T1m, T1r, T2u, T2d, T3l, T3m, T3r, T4u, T4d, Aul, Aum, Aur, Adl, Adm, Adr, Adul, Adum, Adur, Addl, Addm, Addr):
+    """Regular variant
+
+    A_lu (0,0) -- A_mu (1,0) -- A_ru (2,0)
+     |             |             |
+    A_ld (0,1) -- A_md (1,1) -- A_rd (2,1)
+    """
+    px = sim_config.px
+    py = sim_config.py
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    # Upper left
+    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")  # contract
+    # Upper left + upper middle
+    patch_upper_left2 = ncon([patch_upper_left, T1m.shift(px), Aum.shift(px), Adum.shift(px)], "dm_upper_left_upper_middle_traced")
+    # Upper right
+    patch_upper_right = ncon([T1r.shift(2*px), C2.shift(2*px), T2u.shift(2*px), Aur.shift(2*px), Adur.shift(2*px)], "dm_upper_right")
+    # Contract for upper half
+    upper_half = ncon([patch_upper_left2, patch_upper_right], "dm_upper_ron2x1y")
+
+    # Lower left
+    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left")
+    # Lower right
+    patch_lower_right = ncon([C3.shift(2*px+py), T2d.shift(2*px+py), T3r.shift(2*px+py), Adr.shift(2*px+py), Addr.shift(2*px+py)], "dm_lower_right_traced")
+    # Lower right + lower middle
+    patch_lower_right2 = ncon([patch_lower_right, T3m.shift(px+py), Adm.shift(px+py), Addm.shift(px+py)], "dm_lower_right_lower_middle_traced")
+    # Contract for lower half
+    lower_half = ncon([patch_lower_right2, patch_lower_left], "dm_lower_ron2x1y")
+
+    # Contract upper and lower halves
+    rod = ncon([upper_half, lower_half], "dm_ron2x1y")
+    return rod
+
+
+def _get_dm_n1x2y(C1, C2, C3, C4, T1l, T1r, T2u, T2m, T2d, T3l, T3r, T4u, T4m, T4d, Aul, Aur, Aml, Amr, Adl, Adr, Adul, Adur, Adml, Admr, Addl, Addr):
+    """Regular variant
+
+    A_lu (0,0) -- A_ru (1,0)
+     |             |
+    A_lm (0,1) -- A_rm (1,1)
+     |             |
+    A_ld (0,2) -- A_rd (1,2)
+
+    """
+    px = sim_config.px
+    py = sim_config.py
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    # Upper left
+    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")
+    # Upper left + middle left
+    patch_upper_left2 = ncon([patch_upper_left, T4m.shift(py), Aml.shift(py), Adml.shift(py)], "dm_upper_left_left_middle_traced")
+    # Lower left
+    patch_lower_left = ncon([C4.shift(2*py), T3l.shift(2*py), T4d.shift(2*py), Adl.shift(2*py), Addl.shift(2*py)], "dm_lower_left")
+    # Contract for left half
+    left_half = ncon([patch_upper_left2, patch_lower_left], "dm_left_ron1x2y")
+
+
+    # Upper right
+    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right")
+    # Lower right
+    patch_lower_right = ncon([C3.shift(px+2*py), T2d.shift(px+2*py), T3r.shift(px+2*py), Adr.shift(px+2*py), Addr.shift(px+2*py)], "dm_lower_right_traced")
+    # Lower right + lower middle
+    patch_lower_right2 = ncon([patch_lower_right, T2m.shift(px+py), Amr.shift(px+py), Admr.shift(px+py)], "dm_lower_right_right_middle_traced")
+    # Contract for lower half
+    right_half = ncon([patch_lower_right2, patch_upper_right], "dm_right_ron1x2y")
+
+    # Contract upper and lower halves
+    rod = ncon([left_half, right_half], "dm_ron1x2y")
     return rod
 
 

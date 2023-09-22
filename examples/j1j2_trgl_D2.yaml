@@ -5,7 +5,7 @@
 # -> ipeps/config.py
 D:             2
 chi:           40
-model:         'dstt_trgl'
+model:         'j1j2_trgl'
 
 # (Ground state) Optimizer
 method:        'L-BFGS-B'
@@ -16,17 +16,18 @@ method:        'L-BFGS-B'
 seed:          1
 
 # Prefix for output file
-out_prefix:    "3"
+out_prefix: "J2_0"
 
 # Resume earlier simulation if found
 resume:        False
 
+# Init state from given tensors if True
+init_from_tensors: True
+
 model_params:
-  J:           0.8
-  Jzigzag:     0.35
-  delta:       0.1
-  deltaxy:     0.75
-  deltazigzag: 0.5
+  J:           1
+  J2:          0.0
+  sl_rot:      "non_unitary"
 
 # Set to 0 to suppress all output besides printing each step
 disp_level:    2
@@ -46,6 +47,13 @@ flush_output:  True
 # Unit cell pattern (AFM120 order)
 pattern:
   [
-    [0,1],
-    [2,3],
+    [0,1,2],
+    [2,0,1],
+    [1,2,0],
   ]
+#pattern: chi=40
+#  [
+#    [0,1,2],
+#    [1,2,0],
+#    [2,0,1],
+#  ]

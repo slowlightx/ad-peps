@@ -17,8 +17,7 @@ from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
-from adpeps.ipeps.ipeps_xxz_trgl import iPEPS, iPEPS_exci
-# from adpeps.ipeps.ipeps_dstt_trgl import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_j1j2_trgl import iPEPS, iPEPS_exci
 from adpeps.utils import io
 from adpeps.utils.printing import print
 
@@ -85,6 +84,7 @@ def run(config_file: str):
     elif sim_config.init_from_tensors:
         v = peps.tensors.A
         print("Starting simulation with pre-optimized raw tensors")
+        np.savez(output_file, peps=peps, v=v)
     else:
         print("Starting new simulation")
         key = random.PRNGKey(sim_config.seed)
