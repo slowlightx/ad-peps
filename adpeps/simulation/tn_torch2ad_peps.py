@@ -39,23 +39,18 @@
 
 import jax
 import jax.numpy as np
-# from jax import random
 
 import numpy as onp
-import adpeps.ipeps.config as sim_config
 from yaml import dump, safe_load
-# from adpeps.ipeps import models
-
-from adpeps.ipeps.ipeps import iPEPS
 
 from adpeps.utils import io
+from pathlib import Path
 
 from math import sqrt, pi
 import torch
-import scipy
-from scipy.stats import ortho_group
 
 import json
+import argparse
 
 
 def read_ipeps_trgl_tntorch(jsonfile, aux_seq=[3,0,1,2]):
@@ -95,18 +90,12 @@ def read_ipeps_trgl_tntorch(jsonfile, aux_seq=[3,0,1,2]):
             if t == None:
                 raise Exception("Tensor with siteId: " + ts["sideId"] + " NOT FOUND in \"sites\"")
 
-                # depending on the "format", read the bare tensor
-            # if "format" in t.keys():
-            #     if t["format"] == "1D":
-            #         X = torch.from_numpy(read_bare_json_tensor_np(t))
-            # else:
-            #     # default
-            #     X = torch.from_numpy(read_bare_json_tensor_np_legacy(t))
             # sites[coord] = X.permute((0, *asq))
             X = read_bare_json_tensor_np_legacy(t)
             sites[coord] = np.array(onp.transpose(X, (0, *asq)))
 
         return sites
+
 
 def read_ipeps_trgl_tntorch_1site(jsonfile, aux_seq=[3,0,1,2]):
     """
@@ -129,7 +118,6 @@ def read_ipeps_trgl_tntorch_1site(jsonfile, aux_seq=[3,0,1,2]):
     sm[1, 0] = 1
     rot_op = torch.linalg.matrix_exp((-pi/3)*(sp-sm)).numpy()
     print(torch.linalg.matrix_exp((-pi/3)*(sp-sm)))
-    print(torch.linalg.matrix_exp((-pi/2)*(sp-sm)))
     rot_op = np.array([[1/2, -sqrt(3)/2], [sqrt(3)/2, 1/2]])
     print(rot_op@rot_op@rot_op)
     sites = {}
@@ -163,64 +151,12 @@ def read_ipeps_trgl_tntorch_1site(jsonfile, aux_seq=[3,0,1,2]):
             # sites[coord] = X.permute((0, *asq))
             X = read_bare_json_tensor_np_legacy(t)
             sites[coord] = np.array(onp.transpose(X, (0, *asq)))
-            # q_, new_X = gauge_fix(X, X.shape[1])
-            # print(new_X)
         site0 = sites[(0, 0)]
-        # sites[(1, 0)] = rot_op@site0
-        # sites[(2, 0)] = rot_op@(rot_op@site0)
         # sites[(1, 0)] = np.einsum('xa,xijkl->aijkl', rot_op, site0)
         # sites[(2, 0)] = np.einsum('xa,xijkl->aijkl', rot_op@rot_op, site0)
-        # sites[(1, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T, site0)
-        # sites[(2, 0)] = np.einsum('ax,xijkl->aijkl', rot_op.T@rot_op.T, site0)
         sites[(1, 0)] = np.einsum('ax,xijkl->aijkl', rot_op, site0)
         sites[(2, 0)] = np.einsum('ax,xijkl->aijkl', rot_op@rot_op, site0)
         return sites
-
-
-# def constraint_func(q_vec):
-#     if torch.is_tensor(q_vec):
-#         q_mat = q_vec.reshape(2,2)
-#     else:
-#         q_mat = torch.from_numpy(q_vec.reshape(2,2))
-#     return torch.norm(torch.inverse(q_mat)@q_mat-torch.eye(2), p=2)
-#
-#
-# def imag_res(q, site):
-#     q = torch.from_numpy(q)
-#     q= torch.complex(q,q*0)
-#     q_inv = torch.inverse(q).contiguous()
-#     print(q.dtype)
-#     new_site = torch.einsum('axjyl,ix,yk->aijkl', site, q, q_inv)
-#     return sum([val.imag for val in new_site])
-#
-#
-# def gauge_fix(t, ad):
-#     q0 = torch.from_numpy(ortho_group.rvs(ad))
-#     q0 = torch.complex(q0, q0*0)
-#     # q0 = ortho_group.rvs(ad)
-#     ortho_cons = scipy.optimize.NonlinearConstraint(constraint_func, -1e-16, 1e-16)
-#     t = torch.from_numpy(t)
-#     optim_res = scipy.optimize.minimize(imag_res, q0, args=(t), method='trust-constr', constraints=ortho_cons,
-#                                         options={"maxiter": 5000, "xtol": 1e-16, "gtol": 1e-16})
-#     qsol = optim_res.x
-#     qsol_inv = torch.inverse(qsol).contiguous()
-#     new_t = torch.einsum('axjyl,ix,yk->aijkl', qsol, qsol_inv, t)
-#     return optim_res.x, new_t
-
-
-# def read_bare_json_tensor_np(json_obj):
-#     dtype_str = json_obj["dtype"].lower()
-#     assert dtype_str in ["float64", "complex128"], "Invalid dtype" + dtype_str
-#     dims = json_obj["dims"]
-#     raw_data = json_obj["data"]
-#
-#     # convert raw_data list[str] into list[dtype]
-#     if "complex" in dtype_str:
-#         raw_data = np.asarray(raw_data, dtype=np.complex128)
-#     else:
-#         raw_data = np.asarray(raw_data, dtype=np.float64)
-#
-#     return raw_data.reshape(dims)
 
 
 def read_bare_json_tensor_np_legacy(json_obj):
@@ -255,53 +191,67 @@ def read_bare_json_tensor_np_legacy(json_obj):
             X[tuple(int(i) for i in l[:-k])] += float(l[-k])
     return X
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--j1", type=float, default=1., help="nearest neighbour interaction (strong plaquettes)")
+parser.add_argument('--j2', type=float, default=0.0, help='next-nearest neighbor interaction')
+parser.add_argument('--bond_dim', type=int, default=2, help='bond dimension')
+parser.add_argument('--chi', type=int, default=40, help='environmental bond dimension')
+parser.add_argument('--sitetype', type=str, default='1SITE', help='site type of input state', choices=['1SITE', '2SITE', '3SITE'])
+parser.add_argument('--model', type=str, default='trgl', help='model type')
+parser.add_argument('--instate', type=str, default=None, help='site type')
 
-dir = r"/Users/slowlight/PycharmProjects/tn/TensorNetwork"
+args, unknown_args = parser.parse_known_args()
 
-inputfile = rf"{dir}/triangular/states/trglC_j11.0_D2_1SITE_C4X4_state.json"
-inputfile = rf"{dir}/triangular/states/1SITE_j2_0.025_D_2_chi_64_seed_100_state.json"
-inputfile = rf"{dir}/temp/test_trgl_1site_d2_state.json"
-inputfile = rf"{dir}/temp/real_trgl_1site_0.025_d2_state.json"
-# outputfile = rf"{dir}/temp/test_trgl_3site_d2_state.json"
+if args.j2 == 0.0:
+    j2 = 0
+else:
+    j2 = args.j2
+D = args.bond_dim
+chi = args.chi
+sitetype = args.sitetype
 
-# outputfile = rf"{dir}/ad-peps/simulations/gs/xxz_trgl_D2_X31.npz"
-outputfile = rf"{dir}/ad-peps/simulations/gs/J2_0_j1j2_trgl_D2_X40_raw.npz"
-outputfile = rf"{dir}/ad-peps/simulations/gs/J2_d025_j1j2_trgl_D2_X40_raw.npz"
+if args.instate is not None:
+    inputfile = io.localize_data_file(args.instate)
+else:
+    inputfile = io.localize_data_file(f"raw/J1J2_uncompressed_1site_D{D}/trglC_j11.0_j2{j2}_1SITE_C4X4_state.json")
 
+# For workstation
+filename = fr"J2_{j2}_{args.model}_D{D}_X{chi}_raw".replace('.', 'd')  # cluster
+config_filename = fr"J2_{j2}_{args.model}_D{D}".replace('.', 'd')
+# config_filename = fr"trgl/j1j2_trgl_D2".replace('.', 'd')
 
-# config_file = rf"{dir}/ad-peps/examples/xxz_trgl_D2.yaml"
-# print(config_file)
-# with open(config_file) as f:
-#     cfg = safe_load(f)
-#
-# # Show options
-# print(dump(cfg))
-#
-# # Load the configuration file into the sim_config object
-# sim_config.from_dict(cfg)
+filename = Path("gs", filename)
+
+outputfile = io.localize_data_file(filename).with_suffix(".npz")
+config_file = io.localize_config_file(config_filename).with_suffix(".yaml")
+
+with open(config_file) as f:
+    cfg = safe_load(f)
+
+# Show options
+print(dump(cfg))
 
 # 3SITE
-pattern = [
-    [0,1,2],
-    [2,0,1],
-    [1,2,0],
-  ]
+# pattern = [
+#     [0,1,2],
+#     [2,0,1],
+#     [1,2,0],
+#   ]
+pattern = cfg['pattern']
 
+if sitetype == '1SITE':
+    sites = read_ipeps_trgl_tntorch_1site(inputfile, aux_seq=[3,0,1,2])
+else:
+    sites = read_ipeps_trgl_tntorch(inputfile, aux_seq=[3,0,1,2])
 
-# 1SITE
-# sites = read_ipeps_trgl_tntorch(inputfile, aux_seq=[1,2,3,0])
-sites = read_ipeps_trgl_tntorch_1site(inputfile, aux_seq=[3,0,1,2])
-coords2sublat = {(0, 0): 0, (1, 0): 2, (2, 0): 1}
+if max(pattern) == 2:
+    coords2sublat = {(0, 0): 0, (1, 0): 2, (2, 0): 1}
+elif max(pattern) == 1:
+    coords2sublat = {(0, 0): 0, (1, 0): 1}
+else:
+    coords2sublat = {(0, 0): 0, (1, 0): 2, (2, 0): 1}
 
 new_sites = {}
 for i in sites.keys():
     new_sites[coords2sublat[i]] = sites[i]
-
 np.savez(outputfile, sites=new_sites)
-
-# adpeps_state = iPEPS()
-# import pdb; pdb.set_trace()
-#
-# adpeps_state.fill(new_sites)
-#
-# np.savez(outputfile, peps=adpeps_state)
