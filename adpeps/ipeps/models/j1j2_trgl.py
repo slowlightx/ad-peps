@@ -62,10 +62,10 @@ def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, q=-1./3, anisotropy=None, 
     H.fill((1, 0), H_1x0y, tag="H_1x0y")  # H_nn_h
     H.fill((0, 1), H_0x1y, tag="H_0x1y")  # H_nn_v
     H.fill((-1, 1), H_n1x1y, tag="H_n1x1y")  # H_nn_diag
-
-    H.fill((1, 1), H_1x1y, tag="H_1x1y")  # H_nnn_diag
-    H.fill((-2, 1), H_n2x1y, tag="H_n2x1y")  # H_nnn_3x2
-    H.fill((-1, 2), H_n1x2y, tag="H_n1x2y")  # H_nnn_2x3
+    if abs(J2) > 0:
+        H.fill((1, 1), H_1x1y, tag="H_1x1y")  # H_nnn_diag
+        H.fill((-2, 1), H_n2x1y, tag="H_n2x1y")  # H_nnn_3x2
+        H.fill((-1, 2), H_n1x2y, tag="H_n1x2y")  # H_nnn_2x3
 
     return H
 

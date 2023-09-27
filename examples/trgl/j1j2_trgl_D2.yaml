@@ -5,7 +5,7 @@
 # -> ipeps/config.py
 D:             2
 chi:           40
-model:         'trgl'
+model:         'j1j2_trgl'
 
 # (Ground state) Optimizer
 method:        'L-BFGS-B'
@@ -16,7 +16,7 @@ method:        'L-BFGS-B'
 seed:          1
 
 # Prefix for output file
-out_prefix: "J2_0"
+out_prefix: "trgl/J2_0"
 
 # Resume earlier simulation if found
 resume:        False

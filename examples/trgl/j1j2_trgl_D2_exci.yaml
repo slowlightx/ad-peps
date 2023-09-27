@@ -5,10 +5,10 @@
 # -> ipeps/config.py
 D:             2
 chi:           40
-model:         'trgl'
+model:         'j1j2_trgl'
 
 # Prefix for output file
-out_prefix: "J2_0"
+out_prefix: "trgl/J2_0"
 
 # Resume earlier simulation if found
 resume:        True
@@ -19,7 +19,7 @@ init_from_tensors: False
 model_params:
   J:           1
   Delta:       1
-  J2:          0.0
+  J2:          0
   sl_rot:      "non_unitary"
 
 # Set to 0 to suppress all output besides printing each step

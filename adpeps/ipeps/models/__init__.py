@@ -2,4 +2,4 @@
 """
 
 # Spin models
-from . import common, heisenberg, xxz_trgl, hamiltonian, dstt_trgl, j1j2_trgl
+from . import common, heisenberg, hamiltonian, dstt_trgl, j1j2_trgl
