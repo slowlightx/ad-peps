@@ -12,6 +12,7 @@ from adpeps.utils.nested import Nested
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 from .models.common import sigmam, sigmap, sigmaz, id2
+from .models.hamiltonian import Hamiltonian
 
 """
     Evaluation module for iPEPS simulations
@@ -27,10 +28,14 @@ def get_gs_energy(H, tensors):
     E, nrm, *_ = get_obs(H, tensors, measure_obs=False)
     return E[0], nrm
 
+def get_gs_energy_bondwise(H, tensors):
+    """Returns ground-state energy and norm of the iPEPS"""
+    E, nrm, _, E0s = get_obs(H, tensors, measure_obs=False)
+    return E[0], nrm, E0s
 
 def get_all_energy(H, tensors):
     """Returns only energy and norm of the iPEPS"""
-    E, nrm, _ = get_obs(H, tensors, measure_obs=False)
+    E, nrm, *_ = get_obs(H, tensors, measure_obs=False)
     return E
 
 
@@ -54,6 +59,7 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     nrmds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
     # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
     obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
+    E0s = Hamiltonian(pattern=A.pattern)
 
     for i in A.x_major():
         with cur_loc(i):
@@ -73,13 +79,18 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 # Ehs[0, 1] = ncon([roh, H[(1, 0)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Evs[0, 0] = ncon([rov, H[(0, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Eds[1, 0] = ncon([rod, H[(-1, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-
+                print(H[((0, 0), (1, 0))].shape)
                 # Ehs[0, 1] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Eds[1, 1] = ncon([rod, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Ehs[0, 0] = ncon([roh, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Evs[0, 0] = ncon([rov, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Eds[1, 0] = ncon([rod, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Ehs[0, 0] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Eds[1, 0] = ncon([rod, H[((0, 0), (-1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                
+                E0s[((0, 0), (1, 0))] = Ehs[0, 0][0]
+                E0s[((0, 0), (0, 1))] = Evs[0, 0][0]
+                E0s[((0, 0), (-1, 1))] = Eds[1, 0][0]
+
                 if measure_obs:
                     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
                     for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
@@ -115,7 +126,7 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     E = Ehs.mean() + Evs.mean() + Eds.mean()
     # nrm = 0.5 * (nrmhs.mean() + nrmvs.mean())
     nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
-    return E, nrm, obs_evs
+    return E, nrm, obs_evs, E0s
 
 
 def compute_exci_norm(tensors):

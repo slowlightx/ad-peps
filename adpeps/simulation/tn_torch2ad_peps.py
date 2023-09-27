@@ -257,16 +257,19 @@ def read_bare_json_tensor_np_legacy(json_obj):
 
 
 dir = r"/Users/slowlight/PycharmProjects/tn/TensorNetwork"
+dir = r"/home/yixu/tn"
 
 inputfile = rf"{dir}/triangular/states/trglC_j11.0_D2_1SITE_C4X4_state.json"
 inputfile = rf"{dir}/triangular/states/1SITE_j2_0.025_D_2_chi_64_seed_100_state.json"
 inputfile = rf"{dir}/temp/test_trgl_1site_d2_state.json"
 inputfile = rf"{dir}/temp/real_trgl_1site_0.025_d2_state.json"
 # outputfile = rf"{dir}/temp/test_trgl_3site_d2_state.json"
+inputfile = rf"{dir}/peps_states/trgl/trglC_j11.0_D3_1SITE_C4X4_state.json"
 
 # outputfile = rf"{dir}/ad-peps/simulations/gs/xxz_trgl_D2_X31.npz"
 outputfile = rf"{dir}/ad-peps/simulations/gs/J2_0_j1j2_trgl_D2_X40_raw.npz"
 outputfile = rf"{dir}/ad-peps/simulations/gs/J2_d025_j1j2_trgl_D2_X40_raw.npz"
+outputfile = rf"{dir}/ad-peps/simulations/gs/j1j2_trgl/J2_0_j1j2_trgl_D3_X40_raw.npz"
 
 
 # config_file = rf"{dir}/ad-peps/examples/xxz_trgl_D2.yaml"

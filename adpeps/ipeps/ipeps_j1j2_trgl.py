@@ -132,7 +132,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):

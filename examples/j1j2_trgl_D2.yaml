@@ -30,7 +30,7 @@ model_params:
   sl_rot:      "non_unitary"
 
 # Set to 0 to suppress all output besides printing each step
-disp_level:    2
+disp_level:    0
 
 # CTM convergence criterium (singular values norm difference)
 ctm_conv_tol:  1.e-8

@@ -16,14 +16,16 @@ method:        'L-BFGS-B'
 seed:          1
 
 # Prefix for output file
-out_prefix: "delta_15"
+out_prefix: "j1j2_trgl/J2_0"
 
 # Resume earlier simulation if found
-resume:        True
+resume:        False
+
+init_from_tensors: True
 
 model_params:
   J:           1
-  Delta:       15
+  Delta:       1
   J2:          0
   sl_rot:      "non_unitary"
 
