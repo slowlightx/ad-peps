@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_j1j2_trgl as evaluation
+from adpeps.ipeps import evaluation_trgl as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print

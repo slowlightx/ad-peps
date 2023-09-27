@@ -17,7 +17,7 @@ from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
-from adpeps.ipeps.ipeps_xxz_trgl import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_trgl import iPEPS, iPEPS_exci
 # from adpeps.ipeps.ipeps_dstt_trgl import iPEPS, iPEPS_exci
 from adpeps.utils import io
 from adpeps.utils.printing import print

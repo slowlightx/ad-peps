@@ -33,7 +33,6 @@ def get_gs_energy_bondwise(H, tensors):
     """Returns ground-state energy and norm of the iPEPS"""
     E, nrm, _, E0s = get_obs(H, tensors, measure_obs=False)
     return E[0], nrm, E0s
-    # return E[0], nrm, _[-1]
 
 
 def get_all_energy(H, tensors):
@@ -73,43 +72,51 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     for i in A.x_major():
         with cur_loc(i):
             if not Evs.is_changed(0, 0):
-                roh, rov, rod, ron2x1y, ron1x2y, ro1x1y = get_dms(tensors)
+                if abs(sim_config.model_params['J2']) > 0:
+                    roh, rov, rod, ron2x1y, ron1x2y, ro1x1y = get_dms(tensors)
+                else:
+                    roh, rov, rod = get_dms_nn(tensors)
 
                 nrmh = np.trace(np.reshape(roh[0], (4, 4))).real
                 nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
                 nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
-                nrmn2x1y = np.trace(np.reshape(ron2x1y[0], (4, 4))).real
-                nrmn1x2y = np.trace(np.reshape(ron1x2y[0], (4, 4))).real
-                nrm1x1y = np.trace(np.reshape(ro1x1y[0], (4, 4))).real
 
-                # print(nrmh)
                 nrmhs[0, 0] = nrmh
                 nrmvs[0, 0] = nrmv
                 nrmds[1, 0] = nrmd
-                nrmn2x1ys[2, 0] = nrmn2x1y
-                nrmn1x2ys[1, 0] = nrmn1x2y
-                nrm1x1ys[0, 0] = nrm1x1y
 
                 roh = roh / nrmh
                 rov = rov / nrmv
                 rod = rod / nrmd
-                ron2x1y = ron2x1y / nrmn2x1y
-                ron1x2y = ron1x2y / nrmn1x2y
-                ro1x1y = ro1x1y / nrm1x1y
 
                 Ehs[0, 0] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Eds[1, 0] = ncon([rod, H[((0, 0), (-1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                En2x1ys[2, 0] = ncon([ron2x1y, H[((0, 0), (-2, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                En1x2ys[1, 0] = ncon([ron1x2y, H[((0, 0), (-1, 2))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                E1x1ys[0, 0] = ncon([ro1x1y, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
                 E0s[((0, 0), (1, 0))] = Ehs[0, 0][0]
                 E0s[((0, 0), (0, 1))] = Evs[0, 0][0]
                 E0s[((0, 0), (-1, 1))] = Eds[1, 0][0]
-                E0s[((0, 0), (-2, 1))] = En2x1ys[2, 0][0]
-                E0s[((0, 0), (-1, 2))] = En1x2ys[1, 0][0]
-                E0s[((0, 0), (1, 1))] = E1x1ys[0, 0][0]
+
+                if abs(sim_config.model_params['J2']) > 0:
+                    nrmn2x1y = np.trace(np.reshape(ron2x1y[0], (4, 4))).real
+                    nrmn1x2y = np.trace(np.reshape(ron1x2y[0], (4, 4))).real
+                    nrm1x1y = np.trace(np.reshape(ro1x1y[0], (4, 4))).real
+
+                    nrmn2x1ys[2, 0] = nrmn2x1y
+                    nrmn1x2ys[1, 0] = nrmn1x2y
+                    nrm1x1ys[0, 0] = nrm1x1y
+
+                    ron2x1y = ron2x1y / nrmn2x1y
+                    ron1x2y = ron1x2y / nrmn1x2y
+                    ro1x1y = ro1x1y / nrm1x1y
+
+                    En2x1ys[2, 0] = ncon([ron2x1y, H[((0, 0), (-2, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                    En1x2ys[1, 0] = ncon([ron1x2y, H[((0, 0), (-1, 2))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                    E1x1ys[0, 0] = ncon([ro1x1y, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+
+                    E0s[((0, 0), (-2, 1))] = En2x1ys[2, 0][0]
+                    E0s[((0, 0), (-1, 2))] = En1x2ys[1, 0][0]
+                    E0s[((0, 0), (1, 1))] = E1x1ys[0, 0][0]
 
                 if measure_obs:
                     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
@@ -137,17 +144,12 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                     #             obs_evs[obs_i][0,0] = (obs_ev_h.item(), obs_ev_v.item())
                     #         except:
                     #             obs_evs[obs_i][0,0] = (np.nan, np.nan)
-                # print(Ehs[0, 1], Evs[0, 0], Eds[1, 1], level=2)
-    # try:
-    #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
-    # except:
-    #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
-    # print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
-    E = Ehs.mean() + Evs.mean() + Eds.mean() + En2x1ys.mean() + En1x2ys.mean() + E1x1ys.mean()
-    # print(Ehs.mean())
-    # nrm = 0.5 * (nrmhs.mean() + nrmvs.mean())
-    # nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
-    nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean() + nrmn2x1ys.mean() + nrmn1x2ys.mean() + nrm1x1ys.mean()) / 6.
+    if abs(sim_config.model_params['J2']) > 0:
+        E = Ehs.mean() + Evs.mean() + Eds.mean() + En2x1ys.mean() + En1x2ys.mean() + E1x1ys.mean()
+        nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean() + nrmn2x1ys.mean() + nrmn1x2ys.mean() + nrm1x1ys.mean()) / 6.
+    else:
+        E = Ehs.mean() + Evs.mean() + Eds.mean()
+        nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
     return E, nrm, obs_evs, E0s
 
 
@@ -452,22 +454,6 @@ def get_dms(ts, only_gs=False):
     ]
 
     # Tensors that are part of the horizontal reduced density matrix
-    # h_tensors = [
-    #     C1[-1, 0],
-    #     C2[2, 0],
-    #     C3[2, 2],
-    #     C4[-1, 2],
-    #     T1[0, 0],
-    #     T1[1, 0],
-    #     T2[2, 1],
-    #     T3[0, 2],
-    #     T3[1, 2],
-    #     T4[-1, 1],
-    #     A[0, 1],
-    #     A[1, 1],
-    #     Ad[0, 1],
-    #     Ad[1, 1],
-    # ]
     h_tensors = [
         C1[-1, -1],
         C2[2, -1],
@@ -569,7 +555,6 @@ def get_dms(ts, only_gs=False):
     # Regular variant
     roh = _get_dm_h(*h_tensors)
     rov = _get_dm_v(*v_tensors)
-    # rop = _get_dm_p(*p_tensors)
     rod = _get_dm_d(*d_tensors)
 
     ro1x1y = _get_dm_1x1y(*d_tensors)
@@ -577,6 +562,140 @@ def get_dms(ts, only_gs=False):
     ron1x2y = _get_dm_n1x2y(*n1x2y_tensors)
 
     return roh, rov, rod, ron2x1y, ron1x2y, ro1x1y
+
+
+def get_dms_nn(ts, only_gs=False):
+    """Returns the two-site reduced density matrices
+
+    This function relies on the Nested class, which contains
+    tuples of different variants of site/boundary tensors.
+    These variants contain either no B/Bd tensors, only a B
+    tensor, only a Bd tensor or both a B and a Bd tensor.
+
+    When the Nested tensors are contracted, all possible combinations
+    that result again in one of these variants are computed and
+    summed when there are multiple results in the same variant class.
+
+    As a result, the different terms are summed on the fly during the
+    contraction, which greatly reduces the computational cost.
+
+    For example, the reduced density matrices contain 12*12=144 terms
+    each (all possible locations of B and Bd tensors in the various
+    boundaries), so that would make the energy evaluation 144 times
+    as expensive as the ground state energy evaluation.
+    Using this resummation, the total cost reduces to the maximal number
+    of combinations in each contraction of pairs of tensors, 9, leading
+    to a total computational cost of less than 9 times the ground state
+    energy evaluation cost (the site tensors contain only two variants,
+    so not every contraction contains 9 combinations).
+
+    See the notes in nested.py for more details
+
+    roh,rov are Nested tensors, with the following content:
+        ro*[0]: ground state (no B/Bd tensors)
+        ro*[1]: all terms with a single B tensor
+        ro*[2]: all terms with a single Bd tensor
+        ro*[3]: all terms with both a single B and Bd tensor
+
+    The horizontal and vertical dms are located with respect
+    to site (0,0) as follows:
+
+    A_up (0,0) -- A_right(1,0)
+     |           /
+    A_mid (0,1)
+    """
+
+    if only_gs:
+        A = ts.A
+        Ad = ts.Ad
+        C1 = ts.Cs(0)
+        C2 = ts.Cs(1)
+        C3 = ts.Cs(2)
+        C4 = ts.Cs(3)
+        T1 = ts.Ts(0)
+        T2 = ts.Ts(1)
+        T3 = ts.Ts(2)
+        T4 = ts.Ts(3)
+    else:
+        # The 'all_*' functions return Nested tensors, so for example
+        # ts.all_Cs(0) contains (C1, B_C1, Bd_C1, BB_C1)
+        A = ts.all_A
+        Ad = ts.all_Ad
+        C1 = ts.all_Cs(0)
+        C2 = ts.all_Cs(1)
+        C3 = ts.all_Cs(2)
+        C4 = ts.all_Cs(3)
+        T1 = ts.all_Ts(0)
+        T2 = ts.all_Ts(1)
+        T3 = ts.all_Ts(2)
+        T4 = ts.all_Ts(3)
+
+    # Tensors that are part of the vertical reduced density matrix
+    v_tensors = [
+        C1[-1, -1],
+        C2[1, -1],
+        C3[1, 2],
+        C4[-1, 2],
+        T1[0, -1],
+        T2[1, 0],
+        T2[1, 1],
+        T3[0, 2],
+        T4[-1, 0],
+        T4[-1, 1],
+        A[0, 0],
+        A[0, 1],
+        Ad[0, 0],
+        Ad[0, 1],
+    ]
+
+    # Tensors that are part of the horizontal reduced density matrix
+    h_tensors = [
+        C1[-1, -1],
+        C2[2, -1],
+        C3[2, 1],
+        C4[-1, 1],
+        T1[0, -1],
+        T1[1, -1],
+        T2[2, 0],
+        T3[0, 1],
+        T3[1, 1],
+        T4[-1, 0],
+        A[0, 0],
+        A[1, 0],
+        Ad[0, 0],
+        Ad[1, 0],
+    ]
+
+    # Tensors that are part of the diagonal reduced density matrix
+    d_tensors = [
+        C1[-1, -1],
+        C2[2, -1],
+        C3[2, 2],
+        C4[-1, 2],
+        T1[0, -1],
+        T1[1, -1],
+        T2[2, 0],
+        T2[2, 1],
+        T3[0, 2],
+        T3[1, 2],
+        T4[-1, 0],
+        T4[-1, 1],
+        A[0, 0],
+        A[1, 0],
+        A[0, 1],
+        A[1, 1],
+        Ad[0, 0],
+        Ad[1, 0],
+        Ad[0, 1],
+        Ad[1, 1],
+    ]
+
+    # Regular variant
+    roh = _get_dm_h(*h_tensors)
+    rov = _get_dm_v(*v_tensors)
+    rod = _get_dm_d(*d_tensors)
+
+    return roh, rov, rod
 
 
 def _get_dm_v(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add):

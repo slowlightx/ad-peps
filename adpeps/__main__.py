@@ -6,7 +6,7 @@ import argparse
 
 from jax.config import config
 
-from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_j1j2_trgl_gs, run_ipeps_j1j2_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci
+from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci
 
 config.update("jax_enable_x64", True)
 
@@ -109,8 +109,6 @@ if __name__ == "__main__":
         args.config_file = io.localize_config_file(args.config_file)
         if args.lat_gs == "trgl":
             run_ipeps_trgl_gs.run(args.config_file)
-        elif args.lat_gs == "j1j2_trgl":
-            run_ipeps_j1j2_trgl_gs.run(args.config_file)
         elif args.lat_gs == "dstt_trgl":
             run_ipeps_dstt_trgl_gs.run(args.config_file)
         else:
@@ -135,13 +133,6 @@ if __name__ == "__main__":
                 run_ipeps_dstt_trgl_exci.prepare(args.config_file)
             else:
                 run_ipeps_dstt_trgl_exci.run(args.config_file, args.momentum_ix - 1)
-        elif args.lat == "j1j2_trgl":
-            if args.evaluate:
-                run_ipeps_j1j2_trgl_exci.evaluate(args.config_file, args.momentum_ix - 1)
-            elif args.init:
-                run_ipeps_j1j2_trgl_exci.prepare(args.config_file)
-            else:
-                run_ipeps_j1j2_trgl_exci.run(args.config_file, args.momentum_ix - 1)
         else:
             if args.evaluate:
                 run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)
