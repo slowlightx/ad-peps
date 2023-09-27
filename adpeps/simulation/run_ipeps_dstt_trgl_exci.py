@@ -303,7 +303,7 @@ def evaluate(config_file, momentum_ix):
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
             eta0 = 0.02
-            freq = np.arange(0, max([max(evs_full[xk]) for xk in range(len(kxs))])/2, 0.02)
+            freq = np.arange(0, max([max(evs_full[xk]) for xk in range(len(kxs))]), 0.02)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
             for i in range(np.shape(XK)[0]):
@@ -320,7 +320,7 @@ def evaluate(config_file, momentum_ix):
             XK, FREQ = np.meshgrid(np.arange(DSSF_SPEC.shape[1]), freq)
 
         # plt.pcolormesh(XK, FREQ, DSSF_SPEC[:, :, 0])
-        n_vec = np.array([1, 1, 0])
+        n_vec = np.array([1, 0, 1])
         n_vec = n_vec / np.linalg.norm(n_vec)
         DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
         plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE)
@@ -328,7 +328,8 @@ def evaluate(config_file, momentum_ix):
 
         plt.xticks(**plot_info["xticks"])
         # plt.title(rf"$S^{{\perp}}$ TLHAFM D={sim_config.D}")
-        plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
+        # plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
+        plt.title(rf"$S^{{\perp}}$ D={sim_config.D}")
         plt.xlabel("k")
         plt.ylabel("$\omega$")
         plt.show()

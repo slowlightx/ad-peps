@@ -126,7 +126,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):
@@ -231,14 +231,15 @@ class iPEPS_exci(iPEPS):
         print(f"GS norm {nrm0}", level=1)
 
     def substract_gs_energy(self):
-        E, _ = evaluation.get_gs_energy(self.H, self.tensors)
-        E = E / 2
-        print(f"Substracting {E} from Hamiltonian", level=1)
-        for h in self.H._H:
-            for shape, hterm in h.items():
-                h[shape] = hterm.copy() - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-        # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-        # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
+        E, _, E0s = evaluation.get_gs_energy_bondwise(self.H, self.tensors)
+        print(f"Substracting {E} from Hamiltonian bond-wisely", level=1)
+        for i in self.H._H.x_major():
+            h = self.H._H[i]
+            with cur_loc(i):
+                if not self.H._H.is_changed(0, 0):
+                    self.H._H.mark_changed(i)
+                    for shape, hterm in h.items():
+                        h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
 
     def evaluate(self):
         E = evaluation.get_all_energy(self.H, self.tensors)

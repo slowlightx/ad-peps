@@ -24,7 +24,7 @@ def setup():
     return H, obs
 
 
-def make_hamiltonian(J=1, Jzigzag=1, delta=1, deltaxy=0, deltazigzag=0, anisotropy=None, B_ext=0):
+def make_hamiltonian(J=1, Jzigzag=1, delta=1, deltaxy=0, deltazigzag=0, swap=None, B_ext=0):
     """Heisenberg model"""
 
     # if anisotropy == "sy":
@@ -44,6 +44,17 @@ def make_hamiltonian(J=1, Jzigzag=1, delta=1, deltaxy=0, deltazigzag=0, anisotro
     Je_vec = np.array([1, 1 + delta, 1 - deltaxy])
     Jo_vec = np.array([1 - deltaxy, 1 + delta, 1])
     Jp_vec = np.array([1 - deltazigzag, 1, 1 - deltazigzag])
+
+    if swap == "xy":
+        inds = np.array([1, 0, 2])
+        Je_vec = Je_vec[inds]
+        Jo_vec = Jo_vec[inds]
+        Jp_vec = Jp_vec[inds]
+    elif swap == "yzx":
+        inds = np.array([1, 2, 0])
+        Je_vec = Je_vec[inds]
+        Jo_vec = Jo_vec[inds]
+        Jp_vec = Jp_vec[inds]
 
     Heven = J * (
             Je_vec[2] * tprod(sigmaz, sigmaz) / 4
@@ -69,22 +80,17 @@ def make_hamiltonian(J=1, Jzigzag=1, delta=1, deltaxy=0, deltazigzag=0, anisotro
                             + tprod(sigmam, sigmam)) / 4
     )
 
-
     # H = (
     #     tprod(sigmaz, sigmaz) / 4
     #     + (tprod(sigmap, sigmam) + tprod(sigmam, sigmap)) / 2
     # )
     # H_ext_ydir = -1j * B_ext * (sigmap - sigmam) / 2
     # the pattern of Hamiltonian is different from the state!
-    pattern = np.array([[0, 1], [1, 0]])
-    H = Hamiltonian(pattern=pattern, unit_cell=(2, 2))
+    pattern = np.array([[0, 1], [0, 1]])
+    H = Hamiltonian(pattern=pattern)
 
-    # even chain
-
-    # H.fill((1, 0), Heven, tag="H_even")  # even chain
-    H.fill((1, 0), Hzigzag, tag="H_nn_h")  # odd chain
-    # H.fill((0, 1), Heven, tag="H_nn_v")  # odd chain
-    H.fill((1, -1), Hzigzag, tag="H_nn_d")  # inter chain
+    H.fill((1, 0), Hzigzag, tag="H_nn_h")  # inter chain horizontal
+    H.fill((-1, 1), Hzigzag, tag="H_nn_d")  # inter chain diagonal
 
     # even chain
     H[((0, 0), (0, 1))] = Heven
@@ -94,10 +100,6 @@ def make_hamiltonian(J=1, Jzigzag=1, delta=1, deltaxy=0, deltazigzag=0, anisotro
     H[((1, 1), (1, 2))] = Hodd
     # H[((1, 1), (1, 2))] = Hodd
 
-    # print("even")
-    # print(H[(0, 0), (0, 1)])
-    # print("odd")
-    # print(H[(1, 0), (1, 1)])
     return H
 
 

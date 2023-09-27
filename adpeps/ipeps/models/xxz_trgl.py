@@ -54,11 +54,10 @@ def make_hamiltonian(J=1, Delta=1, J2=0, sl_rot=None, anisotropy=None, q=1./3, B
     else:
         H_nn_h, H_nn_v, H_nn_diag, H_nnn_h, H_nnn_v, H_nnn_diag = J*H, J*H, J*H, J2*H, J2*H, J2*H
         pattern = np.array([[0, 1, 2], [2, 0, 1], [1, 2, 0]])
-    # H = Hamiltonian(pattern=pattern)
-    #
-    # H.fill((1, 0), H_nn_h, tag="H_nn_h")  # H_nn_h
-    # H.fill((0, 1), H_nn_v, tag="H_nn_v")  # H_nn_v
-    # H.fill((1, 1), H_nn_diag, tag="H_nn_diag")  # H_nn_diag
+    H = Hamiltonian(pattern=pattern)
+    H.fill((1, 0), H_nn_h, tag="H_nn_h")  # H_nn_h
+    H.fill((0, 1), H_nn_v, tag="H_nn_v")  # H_nn_v
+    H.fill((-1, 1), H_nn_diag, tag="H_nn_diag")  # H_nn_diag
 
     return H
 

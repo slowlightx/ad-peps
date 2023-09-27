@@ -16,10 +16,10 @@ method:        'L-BFGS-B'
 seed:          1
 
 # Prefix for output file
-out_prefix:    "3"
+out_prefix:   "dstt_trgl/xy_swap"
 
 # Resume earlier simulation if found
-resume:        False
+resume:        True
 
 model_params:
   J:           0.8
@@ -27,6 +27,7 @@ model_params:
   delta:       0.1
   deltaxy:     0.75
   deltazigzag: 0.5
+  swap:        "xy"
 
 # Set to 0 to suppress all output besides printing each step
 disp_level:    2
@@ -47,5 +48,5 @@ flush_output:  True
 pattern:
   [
     [0,1],
-    [2,3],
+    [1,0],
   ]

@@ -66,18 +66,15 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     for i in A.x_major():
         with cur_loc(i):
             if not Evs.is_changed(0, 0):
-            # if True:
                 roh, rov, rod = get_dms(tensors)
 
                 nrmh = np.trace(np.reshape(roh[0], (4, 4))).real
                 nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
                 nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
                 # print(nrmh)
-
                 nrmhs[0, 0] = nrmh
                 nrmvs[0, 0] = nrmv
                 nrmds[1, 0] = nrmd
-
                 roh = roh / nrmh
                 rov = rov / nrmv
                 rod = rod / nrmd
@@ -88,14 +85,13 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 # Ehs[0, 1] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 # Eds[1, 1] = ncon([rod, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # print(H[((0, 0), (0, 1))])
-                Ehs[0, 0] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                Eds[1, 0] = ncon([rod, H[((1, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Ehs[0, 0] = ncon([roh, H[(0, 0), (1, 0)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Evs[0, 0] = ncon([rov, H[(0, 0), (0, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
+                Eds[1, 0] = ncon([rod, H[(0, 0), (-1, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
                 E0s[((0, 0), (1, 0))] = Ehs[0, 0][0]
                 E0s[((0, 0), (0, 1))] = Evs[0, 0][0]
-                E0s[((1, 0), (0, 1))] = Eds[1, 0][0]
+                E0s[((0, 0), (-1, 1))] = Eds[1, 0][0]
 
                 if measure_obs:
                     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)

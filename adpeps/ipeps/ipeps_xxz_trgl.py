@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_triangular as evaluation
+from adpeps.ipeps import evaluation_xxz_trgl as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -131,7 +131,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):
@@ -236,11 +236,21 @@ class iPEPS_exci(iPEPS):
         print(f"GS norm {nrm0}", level=1)
 
     def substract_gs_energy(self):
-        E, _ = evaluation.get_gs_energy(self.H, self.tensors)
-        E = E / 3
-        print(f"Substracting {E} from Hamiltonian", level=1)
-        self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-        # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
+        # E, _ = evaluation.get_gs_energy(self.H, self.tensors)
+        # E = E / 3
+        # print(f"Substracting {E} from Hamiltonian", level=1)
+        # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
+        E, _, E0s = evaluation.get_gs_energy_bondwise(self.H, self.tensors)
+        print(f"Substracting {E} from Hamiltonian bond-wisely", level=1)
+        # pt = TList(pattern=self.H._H.pattern)
+        for i in self.H._H.x_major():
+            h = self.H._H[i]
+            with cur_loc(i):
+                if not self.H._H.is_changed(0, 0):
+                    # pt.mark_changed(i)
+                    self.H._H.mark_changed(i)
+                    for shape, hterm in h.items():
+                        h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
 
     def evaluate(self):
         E = evaluation.get_all_energy(self.H, self.tensors)

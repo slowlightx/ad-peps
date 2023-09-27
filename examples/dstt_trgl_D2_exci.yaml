@@ -8,10 +8,10 @@ chi:           40
 model:         'dstt_trgl'
 
 # Prefix for output file
-out_prefix: "3"
+out_prefix:    "dstt_trgl/1_xy_swap"
 
 # Resume earlier simulation if found
-resume:        True
+resume:        False
 
 model_params:
   J:           0.8
@@ -19,6 +19,7 @@ model_params:
   delta:       0.1
   deltaxy:     0.75
   deltazigzag: 0.5
+  swap:        "xy"
 
 # Set to 0 to suppress all output besides printing each step
 disp_level:    1
@@ -39,8 +40,8 @@ flush_output:  True
 pattern:
   [
     [0,1],
-    [2,3],
+    [1,0],
   ]
 
 # Excitations
-momentum_path: 'Bril-trgl'
+momentum_path: 'Bril-dstt-trgl-1'

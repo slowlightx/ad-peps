@@ -132,7 +132,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):
@@ -240,10 +240,8 @@ class iPEPS_exci(iPEPS):
         # E, _ = evaluation.get_gs_energy(self.H, self.tensors)
         # E = E / 3
         E, _, E0s = evaluation.get_gs_energy_bondwise(self.H, self.tensors)
-        print(f"Substracting {E} from Hamiltonian", level=1)
-        print(self.H[(0, 0), (1,0)])
-        nn = self.H[(0,0),(1,0)].copy()
-        pt = TList(pattern=self.H._H.pattern)
+        print(f"Substracting {E} from Hamiltonian bond-wisely", level=1)
+        # pt = TList(pattern=self.H._H.pattern)
         for i in self.H._H.x_major():
             h = self.H._H[i]
             with cur_loc(i):
@@ -252,21 +250,7 @@ class iPEPS_exci(iPEPS):
                     self.H._H.mark_changed(i)
                     for shape, hterm in h.items():
                         h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-
-        print(self.H[(0, 0), (1, 0)]-nn)
-        print(self.H[(0, 0), (0, 1)]-nn)
-        print(self.H[(0, 0), (-1, 1)]-nn)
-        print(self.H[(0, 0), (1, 1)])
-        print(self.H[(0, 0), (-1, 2)])
-        print(self.H[(0, 0), (-2, 1)])
-        # for h in self.H._H:
-        #     print(h)
-        #     for shape, hterm in h.items():
-        #         print(shape)
-        #         h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-                # h[shape] = hterm.copy() - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
         # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-        # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
 
     def evaluate(self):
         E = evaluation.get_all_energy(self.H, self.tensors)
