@@ -31,6 +31,9 @@ seed: int = 1
 resume: bool = False
 """ Resume earlier simulation if found """
 
+gauge: bool = False
+""" Filter the non-physical basis """
+
 base_sim: Union[str, None] = None
 """ Base simulation """
 
