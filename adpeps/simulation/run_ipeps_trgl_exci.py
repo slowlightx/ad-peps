@@ -25,6 +25,7 @@ from adpeps.utils import io
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 
+from adpeps.tensor.contractions import ncon
 
 def run(config_file: str, momentum_ix: int):
     """Start the simulation
@@ -216,7 +217,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     vectors = vectors[:, ixs]
 
     sx = np.array([[0, 0.5], [0.5, 0]])
-    sy = np.array([[0, -0.5], [0.5, 0]])
+    sy = np.array([[0, -0.5j], [0.5j, 0]])
     sz = np.array([[0.5, 0], [0, -0.5]])
     ops = [sx, sy, sz]
 
@@ -230,17 +231,18 @@ def evaluate_spectral_weight(config_file, momentum_ix):
                 if not nrms.is_changed(0, 0):
                     nrms.mark_changed(i)
                     if gs is None:
-                        gs = op @ A[0, 0]
+                        # gs = op @ A[0, 0]
+                        gs = ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
                     else:
-                        gs = np.concatenate((gs, A[0, 0]), axis=0)
+                        gs = np.concatenate((gs, ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))), axis=0)
         gs = np.reshape(gs, (-1))
         gs_with_ops.append(gs)
 
-    basis2 = basis @ P @ N2
+    basis2 = basis @ P @ N2 @ vectors
     spectral_weight = []
     for gs_with_op in gs_with_ops:
-        sw = abs(basis2.T @ gs_with_op)**2
-        spectral_weight.append(sw[ixs])
+        sw = np.abs(basis2.T @ gs_with_op)**2
+        spectral_weight.append(sw)
     return spectral_weight, ev.real
 
 
@@ -254,13 +256,15 @@ def evaluate(config_file, momentum_ix):
 
     # Show options
     print(dump(cfg))
-
+    
     sim_config.from_dict(cfg)
     kxs, kys, plot_info = make_momentum_path(
         sim_config.momentum_path, with_plot_info=True
     )
 
-    plot_spectrum = False
+    plot_spectrum = True
+    is_plot = False
+    is_savefig = True
     import matplotlib.pyplot as plt
     if not plot_spectrum:
         evs = []
@@ -270,12 +274,14 @@ def evaluate(config_file, momentum_ix):
             except:
                 ev = [np.nan]
             evs.append(ev[0])
-        plt.plot(evs, "--+")
-        plt.xticks(**plot_info["xticks"])
-        plt.title(f"Dispersion {sim_config.model} D={sim_config.D}")
-        plt.xlabel("k")
-        plt.ylabel("$\omega$")
-        plt.show()
+        print(evs)
+        if is_plot:
+            plt.plot(evs, "--+")
+            plt.xticks(**plot_info["xticks"])
+            plt.title(f"Dispersion {sim_config.model} D={sim_config.D}")
+            plt.xlabel("k")
+            plt.ylabel("$\omega$")
+            plt.show()
     else:
         # DYNAMICAL SPIN STRUCTURE FACTOR SPECTRUM
         evs = []
@@ -295,7 +301,8 @@ def evaluate(config_file, momentum_ix):
         filename = "dyn_struct_factor"
         foldername = io.get_exci_folder()
         from pathlib import Path
-        obs_file = Path(foldername, filename)
+        obs_file = Path(foldername, filename).with_suffix(".npz")
+        fig_name = Path(foldername, "sqw_perp").with_suffix(".pdf")
 
         if not obs_file.exists() or not cfg.resume:
             def intensity_func(q, w, eta, ev, sw, amp=100000):
@@ -303,7 +310,7 @@ def evaluate(config_file, momentum_ix):
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
             eta0 = 0.02
-            freq = np.arange(0, max([max(evs_full[xk]) for xk in range(len(kxs))]), 0.02)
+            freq = np.arange(0, np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))])), 0.02)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
             for i in range(np.shape(XK)[0]):
@@ -318,20 +325,23 @@ def evaluate(config_file, momentum_ix):
             freq = data["omega"]
             evs = data["elowest"] # inhomogeneous
             XK, FREQ = np.meshgrid(np.arange(DSSF_SPEC.shape[1]), freq)
+        if is_plot:
+            # plt.pcolormesh(XK, FREQ, DSSF_SPEC[:, :, 0])
+            n_vec = np.array([1, 0, 1])
+            n_vec = n_vec / np.linalg.norm(n_vec)
+            DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
+            plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE)
+            plt.plot(np.arange(len(kxs)), evs, color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
 
-        # plt.pcolormesh(XK, FREQ, DSSF_SPEC[:, :, 0])
-        n_vec = np.array([1, 0, 1])
-        n_vec = n_vec / np.linalg.norm(n_vec)
-        DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
-        plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE)
-        plt.plot(np.arange(len(kxs)), evs, color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
-
-        plt.xticks(**plot_info["xticks"])
-        # plt.title(rf"$S^{{\perp}}$ TLHAFM D={sim_config.D}")
-        plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
-        plt.xlabel("k")
-        plt.ylabel("$\omega$")
-        plt.show()
+            plt.xticks(**plot_info["xticks"])
+            # plt.title(rf"$S^{{\perp}}$ TLHAFM D={sim_config.D}")
+            plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
+            plt.xlabel("k")
+            plt.ylabel("$\omega$")
+            if is_savefig:
+                plt.savefig(fig_name)
+            else:
+                plt.show()
 
 
 class iPEPSExciSimulation:

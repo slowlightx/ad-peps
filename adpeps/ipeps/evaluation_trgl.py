@@ -305,6 +305,8 @@ def get_orth_basis(tensors):
                     basis = local_basis
                 else:
                     basis = linalg.block_diag(basis, local_basis)
+    if sim_config.gauge:
+        basis = filter_null_modes(tensors, basis)
     # basis = _filter_null_modes(tensors, basis)
     return basis
 

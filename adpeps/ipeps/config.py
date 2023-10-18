@@ -37,8 +37,11 @@ base_sim: Union[str, None] = None
 load_sim: bool = None
 """ Load previous (Python) simulation """
 
-init_from_tensors: bool = True
+init_from_tensors: bool = False
 """ Init states from given tensors """
+
+gauge: bool = False
+""" Gauge the basis or not"""
 
 max_iterations: int = 100
 """ Maximum number of optimizer iterations """
