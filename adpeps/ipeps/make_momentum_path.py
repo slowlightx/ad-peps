@@ -80,6 +80,43 @@ def make_momentum_path(name, with_plot_info=False):
             }
             return kxs_sqr, kys_sqr, plot_info
         return kxs_sqr, kys_sqr
+    if name == "Bril-trgl-grp":
+        kxs = np.concatenate(
+            [
+                lin_ex(2 * pi / sqrt(3), 0, 2 * n_per_piece),
+                lin_ex(0, 2 * pi / sqrt(3), 2 * n_per_piece),
+                lin_ex(2 * pi / sqrt(3), pi / sqrt(3), n_per_piece),
+                np.linspace(pi/ sqrt(3), pi / sqrt(3), n_per_piece),
+            ]
+        )
+        kys = np.concatenate(
+            [
+                lin_ex(0, 0, 2 * n_per_piece),
+                lin_ex(0, 2 * pi / 3, 2 * n_per_piece),
+                lin_ex(2 * pi / 3, pi, n_per_piece),
+                np.linspace(pi, 0, n_per_piece),
+            ]
+        )
+        distort_trgl2sqr = np.array([[np.sqrt(3)/3, 1/3], [np.sqrt(3)/3, -1/3]])
+        kxs_sqr = np.zeros(kxs.shape)
+        kys_sqr = np.zeros(kys.shape)
+        for i in range(len(kxs)):
+            new_k = distort_trgl2sqr@np.array([kxs[i], kys[i]])
+            kxs_sqr[i] = new_k[0]
+            kys_sqr[i] = new_k[1]
+        if with_plot_info:
+            plot_info["xticks"] = {
+                "ticks": [0, 9, 18, 22, 26],
+                "labels": [
+                    r"$M(\frac{2\pi}{\sqrt{3}},0)$",
+                    r"$\Gamma(0,0)$",
+                    r"$K(\frac{2\pi}{\sqrt{3}},\frac{2\pi}{3})$",
+                    r"$M2(\frac{\pi}{\sqrt{3}},\pi)$",
+                    r"$Y(\frac{\pi}{\sqrt{3}},0)$",
+                ],
+            }
+            return kxs_sqr, kys_sqr, plot_info
+        return kxs_sqr, kys_sqr
     if name == "Bril-trgl-rough":
         kxs = np.concatenate(
             [

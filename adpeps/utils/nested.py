@@ -155,6 +155,10 @@ class Nested:
     def shape(self):
         return self.tensors[0].shape
 
+    def reshape(self, shape):
+        res = Nested([self.tensors[i].reshape(shape) for i in range(4)])
+        return res
+
     @property
     def dims(self):
         return self.tensors[0].dims

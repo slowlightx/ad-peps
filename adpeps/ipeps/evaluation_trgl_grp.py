@@ -12,6 +12,7 @@ from adpeps.utils.nested import Nested
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 from .models.common import sigmam, sigmap, sigmaz, id2
+from .models.hamiltonian import Hamiltonian
 
 """
     Evaluation module for iPEPS simulations
@@ -28,9 +29,15 @@ def get_gs_energy(H, tensors):
     return E[0], nrm
 
 
+def get_gs_energy_bondwise(H, tensors):
+    """Returns ground-state energy and norm of the iPEPS"""
+    E, nrm, _, E0s = get_obs(H, tensors, measure_obs=False)
+    return E[0], nrm, E0s
+
+
 def get_all_energy(H, tensors):
     """Returns only energy and norm of the iPEPS"""
-    E, nrm, _ = get_obs(H, tensors, measure_obs=False)
+    E, nrm, *_ = get_obs(H, tensors, measure_obs=False)
     return E
 
 
@@ -91,7 +98,9 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     nrmtriannns = TList(shape=A.size, pattern=A.pattern)  # a0-a1-a3 triangular terms
     nrmtribnnns = TList(shape=A.size, pattern=A.pattern)  # b0-b1-b3 triangular terms
     nrmtricnnns = TList(shape=A.size, pattern=A.pattern)  # c0-c1-c3 triangular terms
-    obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
+    # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
+    obs_evs = {s: [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]] for s in ['a', 'b', 'c']}
+    E0s = Hamiltonian(pattern=A.pattern)
 
     for i in A.x_major():
         with cur_loc(i):
@@ -128,66 +137,101 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 # E1x1ys[0, 0] = ncon([ro1x1y, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
                 # (2) Construct 3-body density matrices for the energy evaluation (2-body still needed for bonds evaluation)
-                rotria, rotrib, rotric, rotria_nnn, rotrib_nnn, rotric_nnn = get_dms_tri(tensors)
-                nrma = np.trace(np.reshape(rotria[0], (6, 6))).real
-                nrmb = np.trace(np.reshape(rotrib[0], (6, 6))).real
-                nrmc = np.trace(np.reshape(rotric[0], (6, 6))).real
-                nrmannn = np.trace(np.reshape(rotria_nnn[0], (6, 6))).real
-                nrmbnnn = np.trace(np.reshape(rotrib_nnn[0], (6, 6))).real
-                nrmcnnn = np.trace(np.reshape(rotric_nnn[0], (6, 6))).real
+                if abs(sim_config.model_params['J2']) > 0:
+                    rotria, rotrib, rotric, rotria_nnn, rotrib_nnn, rotric_nnn = get_dms_tri(tensors)
+                else:
+                    rotria, rotrib, rotric = get_dms_tri(tensors, only_nn=True)
+
+                nrma = np.trace(np.reshape(rotria[0], (8, 8))).real
+                nrmb = np.trace(np.reshape(rotrib[0], (8, 8))).real
+                nrmc = np.trace(np.reshape(rotric[0], (8, 8))).real
+                nrmtrias[0, 0] = nrma
+                nrmtribs[0, 0] = nrmb
+                nrmtrics[0, 0] = nrmc
 
                 rotria = rotria / nrma
                 rotrib = rotrib / nrmb
                 rotric = rotric / nrmc
-                rotria_nnn = rotria_nnn / nrmannn
-                rotrib_nnn = rotrib_nnn / nrmbnnn
-                rotric_nnn = rotric_nnn / nrmcnnn
 
-                Etrias[0, 0] = ncon([rotria, H[(0, 0), (1, 0)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
-                Etribs[0, 0] = ncon([rotrib, H[(0, 0), (1, 0)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
-                Etrics[0, 0] = ncon([rotric, H[(0, 0), (1, 0)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
-                Etriannns[0, 0] = ncon([rotria_nnn, H[(0, 0), (0, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
-                Etribnnns[0, 0] = ncon([rotrib_nnn, H[(0, 0), (0, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
-                Etricnnns[0, 0] = ncon([rotric_nnn, H[(0, 0), (0, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                # Etrias[0, 0] = ncon([rotria, H[(0, 0), (1, 0)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                Etrias[0, 0] = ncon([rotria, H[(0, 0), (1, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                Etribs[0, 0] = ncon([rotrib, H[(0, 0), (2, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                Etrics[0, 0] = ncon([rotric, H[(0, 0), (1, 2)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                E0s[((0, 0), (1, 1))] = Etrias[0, 0][0]
+                E0s[((0, 0), (2, 1))] = Etribs[0, 0][0]
+                E0s[((0, 0), (1, 2))] = Etrics[0, 0][0]
 
-                # if measure_obs:
-                #     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
-                #     for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
-                #         try:
-                #             obs_ev = ncon([ro_one, obs], ([1, 2], [1, 2]))
-                #             norm = ncon([ro_one, id2], ([1, 2], [1, 2]))
-                #             obs_evs[obs_i][0, 0] = obs_ev / norm
-                #         except:
-                #             obs_evs[obs_i][0, 0] = np.nan
-                #     # for obs_i, obs in enumerate(tensors.observables):
-                #     #     if obs.size == 1:
-                #     #         try:
-                #     #             obs_ev = ncon([ro_one, obs.operator], ([1,2],[1,2]))
-                #     #             # print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.item()}", level=2)
-                #     #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.astype(float)}", level=2)
-                #     #             obs_evs[obs_i][0,0] = obs_ev.astype(float)
-                #     #         except:
-                #     #             obs_evs[obs_i][0,0] = np.nan
-                #     #     elif obs.size == 2:
-                #     #         try:
-                #     #             obs_ev_h = ncon([roh, obs.operator], ([1,2,3,4],[1,2,3,4]))
-                #     #             obs_ev_v = ncon([rov, obs.operator], ([1,2,3,4],[1,2,3,4]))
-                #     #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev_h.item()}, {obs_ev_v.item()}", level=2)
-                #     #             obs_evs[obs_i][0,0] = (obs_ev_h.item(), obs_ev_v.item())
-                #     #         except:
-                #     #             obs_evs[obs_i][0,0] = (np.nan, np.nan)
-                # print(Ehs[0, 1], Evs[0, 0], Eds[1, 1], level=2)
+                if abs(sim_config.model_params['J2']) > 0:
+                    nrmannn = np.trace(np.reshape(rotria_nnn[0], (8, 8))).real
+                    nrmbnnn = np.trace(np.reshape(rotrib_nnn[0], (8, 8))).real
+                    nrmcnnn = np.trace(np.reshape(rotric_nnn[0], (8, 8))).real
+
+                    nrmtriannns[0, 0] = nrmannn
+                    nrmtribnnns[0, 0] = nrmbnnn
+                    nrmtricnnns[0, 0] = nrmcnnn
+
+                    rotria_nnn = rotria_nnn / nrmannn
+                    rotrib_nnn = rotrib_nnn / nrmbnnn
+                    rotric_nnn = rotric_nnn / nrmcnnn
+
+                    Etriannns[0, 0] = ncon([rotria_nnn, H[(0, 0), (3, 0)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                    Etribnnns[0, 0] = ncon([rotrib_nnn, H[(0, 0), (4, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                    Etricnnns[0, 0] = ncon([rotric_nnn, H[(0, 0), (3, 1)]], ([1,2,3,4,5,6], [1,2,3,4,5,6])).real
+                    E0s[((0, 0), (3, 0))] = Etriannns[0, 0][0]
+                    E0s[((0, 0), (4, 0))] = Etribnnns[0, 0][0]
+                    E0s[((0, 0), (3, 1))] = Etricnnns[0, 0][0]
+
+                if measure_obs:
+                    for s in ['a', 'b', 'c']:
+                        ro_1site= get_one_phys_site_dm(tensors.Cs,tensors.Ts,A,Ad,stk=s)
+                        for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
+                            try:
+                                obs_ev = ncon([ro_1site, obs], ([1, 2], [1, 2]))
+                                norm = ncon([ro_1site, id2], ([1, 2], [1, 2]))
+                                obs_evs[s][obs_i][0, 0] = obs_ev / norm
+                            except:
+                                obs_evs[s][obs_i][0, 0] = np.nan
+                    # ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
+                    # for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
+                    #     try:
+                    #         obs_ev = ncon([ro_one, obs], ([1, 2], [1, 2]))
+                    #         norm = ncon([ro_one, id2], ([1, 2], [1, 2]))
+                    #         obs_evs[obs_i][0, 0] = obs_ev / norm
+                    #     except:
+                    #         obs_evs[obs_i][0, 0] = np.nan
+                    # for obs_i, obs in enumerate(tensors.observables):
+                    #     if obs.size == 1:
+                    #         try:
+                    #             obs_ev = ncon([ro_one, obs.operator], ([1,2],[1,2]))
+                    #             # print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.item()}", level=2)
+                    #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev.astype(float)}", level=2)
+                    #             obs_evs[obs_i][0,0] = obs_ev.astype(float)
+                    #         except:
+                    #             obs_evs[obs_i][0,0] = np.nan
+                    #     elif obs.size == 2:
+                    #         try:
+                    #             obs_ev_h = ncon([roh, obs.operator], ([1,2,3,4],[1,2,3,4]))
+                    #             obs_ev_v = ncon([rov, obs.operator], ([1,2,3,4],[1,2,3,4]))
+                    #             print(f"Obs {(obs_i,i)} {obs.__repr__()}: {obs_ev_h.item()}, {obs_ev_v.item()}", level=2)
+                    #             obs_evs[obs_i][0,0] = (obs_ev_h.item(), obs_ev_v.item())
+                    #         except:
+                    #             obs_evs[obs_i][0,0] = (np.nan, np.nan)
     # try:
     #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
     # except:
     #     print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
     # print(Ehs.mean(), Evs.mean(), Eds.mean(), level=2)
-    E = Etrias.mean() + Etribs.mean() + Etrics.mean() + Etriannns.mean() + Etribnnns.mean() + Etricnnns.mean()
+    if abs(sim_config.model_params['J2']) > 0:
+        E = (Etrias.mean() + Etribs.mean() + Etrics.mean() + Etriannns.mean() + Etribnnns.mean() + Etricnnns.mean()) / 6.
+        nrm = (nrmtrias.mean() + nrmtribs.mean() + nrmtrics.mean() + nrmtriannns.mean() + nrmtribnnns.mean() + nrmtricnnns.mean()) / 6.
+    else:
+        E = (Etrias.mean() + Etribs.mean() + Etrics.mean()) / 3.
+        nrm = (nrmtrias.mean() + nrmtribs.mean() + nrmtrics.mean()) / 3.
 
     # nrm = 0.5 * (nrmhs.mean() + nrmvs.mean())
     # nrm = (nrmhs.mean() + nrmvs.mean() + nrmds.mean()) / 3.
-    nrm = (nrmtrias.mean() + nrmtribs.mean() + nrmtrics.mean() + nrmtriannns.mean() + nrmtribnnns.mean() + nrmtricnnns.mean()) / 6.
-    return E, nrm, obs_evs
+    # nrm = (nrmtrias.mean() + nrmtribs.mean() + nrmtrics.mean() + nrmtriannns.mean() + nrmtribnnns.mean() + nrmtricnnns.mean()) / 6.
+    return E, nrm, obs_evs, E0s
 
 
 def compute_exci_norm(tensors):
@@ -342,6 +386,8 @@ def get_orth_basis(tensors):
                     basis = local_basis
                 else:
                     basis = linalg.block_diag(basis, local_basis)
+    if sim_config.gauge:
+        basis = filter_null_modes(tensors, basis)
     # basis = _filter_null_modes(tensors, basis)
     return basis
 
@@ -405,7 +451,7 @@ def filter_null_modes(tensors, basis):
     basis = basis @ linalg.null_space(nulls.conjugate().T)
     return basis
 
-def get_dms_tri(ts, only_gs=False):
+def get_dms_tri(ts, only_gs=False, only_nn=False):
     """Returns the two-site reduced density matrices
 
     This function relies on the Nested class, which contains
@@ -507,15 +553,17 @@ def get_dms_tri(ts, only_gs=False):
 
     # Regular variant
     roa = _get_dm_tria(*s_tensors)
-    rob = _get_dm_trib(*p_tensors)
+    rob = _get_dm_tri(*p_tensors, stk=['b', 'c', 'n', 'a'])
     # rop = _get_dm_p(*p_tensors)
-    roc = _get_dm_tric(*p_tensors)
+    roc = _get_dm_tri(*p_tensors, stk=['c', 'n', 'b', 'a'])
+    if only_nn:
+        return roa, rob, roc
+    else:
+        roa2 = _get_dm_tri(*p_tensors, stk=['a', 'a', 'n', 'a'])
+        rob2 = _get_dm_tri(*p_tensors, stk=['b', 'b', 'n', 'b'])
+        roc2 = _get_dm_tri(*p_tensors, stk=['c', 'c', 'n', 'c'])
 
-    roa2 = _get_dm_tria_nnn(*p_tensors)
-    rob2 = _get_dm_trib_nnn(*p_tensors)
-    roc2 = _get_dm_tric_nnn(*p_tensors)
-
-    return roa, rob, roc, roa2, rob2, roc2
+        return roa, rob, roc, roa2, rob2, roc2
 
 def _get_dm_tria(C1, C2, C3, C4, T1, T2, T3, T4, A, Ad):
     """Regular variant
@@ -536,8 +584,8 @@ def _get_dm_tria(C1, C2, C3, C4, T1, T2, T3, T4, A, Ad):
 
     # Contract upper and lower halves
     roa = ncon([upper_half, lower_half], "dm_tri_single")
-
-    roa = np.reshape(roa, [2, 2, 2, 2, 2, 2])
+    # print(roa)
+    roa = roa.reshape((2, 2, 2, 2, 2, 2))
 
     return roa
 
@@ -559,7 +607,7 @@ def _get_dm_tri(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur
 
     D = sim_config.D
     # Reshape onsite tensor
-    if stk == {'a', 'b', 'c', 'n'}:
+    if set(stk).issubset({'a', 'b', 'c', 'n'}):
         if stk[0] in ['a', 'b', 'c']:
             Aul = Aul.reshape([2, 2, 2, D, D, D, D])
             Adul = Adul.reshape([2, 2, 2, D, D, D, D])
@@ -573,7 +621,7 @@ def _get_dm_tri(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur
             Adr = Adr.reshape([2, 2, 2, D, D, D, D])
             Addr = Addr.reshape([2, 2, 2, D, D, D, D])
     else:
-        raise Exception(f"Invalid stk set: {stk}; expect an arangement of ('a', 'b', 'c', 'n')")
+        raise Exception(f"Invalid stk set: {stk}; expect elements of ('a', 'b', 'c', 'n')")
 
     # Upper left
     patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], f"dm_tri_upper_left_{stk[0]}")  # contract
@@ -584,25 +632,25 @@ def _get_dm_tri(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur
     if stk[2] == 'n':
         upper_half = ncon([patch_upper_left, patch_upper_right], "dm_tri_upper")
     else:
-        upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_rod")
+        upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_ro1x1y")
 
     # Lower left
     patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], f"dm_tri_lower_left_{stk[2]}")
 
     # Lower right
-    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], f"dm_lower_right_{stk[3]}")
+    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], f"dm_tri_lower_right_{stk[3]}")
 
     # Contract for lower half
     if stk[2] == 'n':
-        lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_rod")
+        lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_ro1x1y")
     else:
         lower_half = ncon([patch_lower_left, patch_lower_right], "dm_tri_lower")
 
     # Contract upper and lower halves
     if stk[2] == 'n':
-        rotri = ncon([upper_half, lower_half], "dm_tri_l")
-    else:
         rotri = ncon([upper_half, lower_half], "dm_tri_u")
+    else:
+        rotri = ncon([upper_half, lower_half], "dm_tri_l")
 
     return rotri
 
@@ -727,3 +775,28 @@ def get_one_site_dm(Cs, Ts, A, Ad):
     ro1_no_op = ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
     ro1 = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1,2,3,4,5,6,7,8], [-1,1,2,3,4], [-2,5,6,7,8]))
     return ro1
+
+def get_one_phys_site_dm(Cs, Ts, A, Ad, stk=None):
+    # Tensors that are part of 1-site reduced density matrix
+    C1 = Cs[0][-1, -1]
+    C2 = Cs[1][1, -1]
+    C3 = Cs[2][1, 1]
+    C4 = Cs[3][-1, 1]
+    T1 = Ts[0][0, -1]
+    T2 = Ts[1][1, 0]
+    T3 = Ts[2][0, 1]
+    T4 = Ts[3][-1, 0]
+
+    ro1_no_op = ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
+    ro1tri = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1, 2, 3, 4, 5, 6, 7, 8], [-1, 1, 2, 3, 4], [-2, 5, 6, 7, 8]))
+
+    if stk == 'a':
+        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([-1, 1, 2, -2, 3, 4], [1, 3], [2, 4]))
+    elif stk == 'b':
+        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([1, -1, 2, 3, -2, 4], [1, 3], [2, 4]))
+    elif stk == 'c':
+        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([1, 2, -1, 3, 4, -2], [1, 3], [2, 4]))
+    else:
+        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2, id2), ([1, 2, 3, 4, 5, 6], [1, 4], [2, 5], [3, 6]))
+
+    return ro1site

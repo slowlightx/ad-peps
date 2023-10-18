@@ -47,9 +47,9 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_j1j2_trgl_grp as evaluation
+from adpeps.ipeps import evaluation_trgl as evaluation
 from adpeps.tensor.contractions import ncon
-from adpeps.utils.ctmtensors import CTMTensors
+from adpeps.utils.ctmtensors_cplx import CTMTensors
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 from adpeps.utils import io
@@ -70,7 +70,7 @@ class iPEPS:
         self.H, self.observables = model.setup()
 
         # Initialize tensors
-        self.d = self.H.shape[0] ** 3
+        self.d = self.H.shape[0]
         if sim_config.init_from_tensors:
             filename = io.get_gs_raw_tensors_file()
             print(filename)
@@ -132,7 +132,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):
@@ -237,14 +237,20 @@ class iPEPS_exci(iPEPS):
         print(f"GS norm {nrm0}", level=1)
 
     def substract_gs_energy(self):
-        E, _ = evaluation.get_gs_energy(self.H, self.tensors)
-        E = E / 3
-        print(f"Substracting {E} from Hamiltonian", level=1)
-        for h in self.H._H:
-            for shape, hterm in h.items():
-                h[shape] = hterm.copy() - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
+        # E, _ = evaluation.get_gs_energy(self.H, self.tensors)
+        # E = E / 3
+        E, _, E0s = evaluation.get_gs_energy_bondwise(self.H, self.tensors)
+        print(f"Substracting {E} from Hamiltonian bond-wisely", level=1)
+        # pt = TList(pattern=self.H._H.pattern)
+        for i in self.H._H.x_major():
+            h = self.H._H[i]
+            with cur_loc(i):
+                if not self.H._H.is_changed(0, 0):
+                    # pt.mark_changed(i)
+                    self.H._H.mark_changed(i)
+                    for shape, hterm in h.items():
+                        h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
         # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-        # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
 
     def evaluate(self):
         E = evaluation.get_all_energy(self.H, self.tensors)

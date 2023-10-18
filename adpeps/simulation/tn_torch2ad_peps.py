@@ -216,9 +216,9 @@ else:
     inputfile = io.localize_data_file(f"raw/J1J2_uncompressed_1site_D{D}/trglC_j11.0_j2{j2}_1SITE_C4X4_state.json")
 
 # For workstation
-filename = fr"J2_{j2}_{args.model}_D{D}_X{chi}_raw".replace('.', 'd')  # cluster
+filename = fr"cplx_J2_{j2}_{args.model}_D{D}_X{chi}_raw".replace('.', 'd')  # cluster
 config_filename = fr"J2_{j2}_{args.model}_D{D}".replace('.', 'd')
-# config_filename = fr"trgl/j1j2_trgl_D2".replace('.', 'd')
+config_filename = fr"cplx_trgl_D2".replace('.', 'd')
 
 filename = Path("gs", filename)
 
@@ -238,7 +238,7 @@ print(dump(cfg))
 #     [1,2,0],
 #   ]
 pattern = cfg['pattern']
-
+print(pattern)
 if sitetype == '1SITE':
     sites = read_ipeps_trgl_tntorch_1site(inputfile, aux_seq=[3,0,1,2])
 else:

@@ -88,3 +88,6 @@ class EmptyT:
 
     def is_finite(self):
         return True
+
+    def reshape(self, *args):
+        return self

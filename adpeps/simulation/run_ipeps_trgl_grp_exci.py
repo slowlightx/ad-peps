@@ -18,11 +18,14 @@ from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
 from adpeps.ipeps.evaluation import filter_null_modes
-from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
+# from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_trgl_grp import iPEPS, iPEPS_exci
 from adpeps.ipeps.make_momentum_path import make_momentum_path
 from adpeps.utils import io
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
+
+from adpeps.tensor.contractions import ncon
 
 
 def run(config_file: str, momentum_ix: int):
@@ -235,7 +238,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
         gs = np.reshape(gs, (-1))
         gs_with_ops.append(gs)
 
-    basis2 = basis @ P @ N2
+    basis2 = basis @ P @ N2 @ vectors
     spectral_weight = []
     for gs_with_op in gs_with_ops:
         sw = abs(basis2.T @ gs_with_op)**2
@@ -260,8 +263,9 @@ def evaluate(config_file, momentum_ix):
     )
 
     plot_spectrum = True
+    is_plot = True
+    is_savefig = True
     import matplotlib.pyplot as plt
-    import matplotlib.colors as colors
     if not plot_spectrum:
         evs = []
         for ix in range(len(kxs)):
@@ -295,16 +299,16 @@ def evaluate(config_file, momentum_ix):
         filename = "dyn_struct_factor"
         foldername = io.get_exci_folder()
         from pathlib import Path
-        obs_file = Path(foldername, filename)
+        obs_file = Path(foldername, filename).with_suffix(".npz")
+        fig_name = Path(foldername, "sqw_perp").with_suffix(".pdf")
 
         if not obs_file.exists() or not cfg.resume:
-            def intensity_func(q, w, eta, ev, sw, amp=10000000):
+            def intensity_func(q, w, eta, ev, sw, amp=100000):
                 # return amp*np.sum(np.array([np.exp(-1/eta*(w-ev[ia])**2)*sw[ia] for ia in range(len(sw))]))
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
             eta0 = 0.02
-            freq = np.arange(0, max([max(evs_full[xk]) for xk in range(len(kxs))]), 0.02)
-            # freq = np.arange(1.0, 2.0, 0.02)
+            freq = np.arange(0, np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))])), 0.02)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
             for i in range(np.shape(XK)[0]):
@@ -321,21 +325,27 @@ def evaluate(config_file, momentum_ix):
             XK, FREQ = np.meshgrid(np.arange(DSSF_SPEC.shape[1]), freq)
 
         # plt.pcolormesh(XK, FREQ, DSSF_SPEC[:, :, 0])
-        n_vec = np.array([1, 0, 1])
-        n_vec = n_vec / np.linalg.norm(n_vec)
-        DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
-        plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE)
-        # plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE, norm=colors.LogNorm(vmin=DSSF_SPEC_TRANSVERSE.min(), vmax=DSSF_SPEC_TRANSVERSE.max()))
+        if is_plot:
+            n_vec = np.array([1, 0, 1])
+            n_vec = n_vec / np.linalg.norm(n_vec)
+            DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
+            # plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE)
+            # plt.plot(np.arange(len(kxs)), evs, color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
+            import matplotlib.colors as colors
+            DSSF_SPEC_TRANSVERSE = DSSF_SPEC_TRANSVERSE / np.max(DSSF_SPEC_TRANSVERSE)
+            plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE, cmap="turbo", rasterized=True, linewidth=0,
+                           norm=colors.LogNorm(vmin=DSSF_SPEC_TRANSVERSE.min(), vmax=DSSF_SPEC_TRANSVERSE.max()))
 
-        plt.plot(np.arange(len(kxs)), evs, color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
-
-        plt.xticks(**plot_info["xticks"])
-        # plt.title(rf"$S^{{\perp}}$ TLHAFM D={sim_config.D}")
-        plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
-        plt.xlabel("k")
-        plt.ylabel("$\omega$")
-        plt.colorbar()
-        plt.show()
+            plt.xticks(**plot_info["xticks"])
+            # plt.title(rf"$S^{{\perp}}$ TLHAFM D={sim_config.D}")
+            # plt.title(rf"$S^{{\perp}}$ XXZ $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
+            plt.title(rf"$S^{{\perp}}$ D={sim_config.D}")
+            plt.xlabel("k")
+            plt.ylabel("$\omega$")
+        if is_savefig:
+            plt.savefig(fig_name)
+        else:
+            plt.show()
 
 
 class iPEPSExciSimulation:

@@ -6,7 +6,7 @@ import adpeps.ipeps.config as sim_config
 from adpeps.utils.tlist import set_pattern
 from adpeps.utils.tlist import TList
 
-from .common import sigmam, sigmap, sigmaz
+from .common import sigmam, sigmap, sigmaz, id2
 from .hamiltonian import Hamiltonian
 
 
@@ -26,9 +26,9 @@ def setup():
 
 def make_hamiltonian(J=1, Delta=1, J2=0, anisotropy=None, B_ext=0):
     """Heisenberg model"""
-    Rot_op = sc.linalg.expm((np.pi*q)*(sigmap - sigmam))
+
     if anisotropy == "sy":
-        H = (
+        H2 = (
             tprod(sigmaz, sigmaz) / 4
             + (1 + Delta) * (tprod(sigmap, sigmam)
                             + tprod(sigmam, sigmap)) / 4
@@ -36,7 +36,7 @@ def make_hamiltonian(J=1, Delta=1, J2=0, anisotropy=None, B_ext=0):
                             + tprod(sigmam, sigmam)) / 4
         )
     else:
-        H = (
+        H2 = (
             Delta * tprod(sigmaz, sigmaz) / 4
             + (tprod(sigmap, sigmam) + tprod(sigmam, sigmap)) / 2
         )
@@ -46,26 +46,25 @@ def make_hamiltonian(J=1, Delta=1, J2=0, anisotropy=None, B_ext=0):
     # )
     # H_ext_ydir = -1j * B_ext * (sigmap - sigmam) / 2
 
-    if sl_rot == "unitary":
-        H_1x0y = J*np.einsum('ixjy,xa,yb->iajb', H, Rot_op, Rot_op)
-        H_0x1y = J*np.einsum('ixjy,xa,yb->iajb', H, Rot_op, Rot_op)
-        H_n1x1y = J*np.einsum('ixjy,xa,yb->iajb', H, Rot_op@Rot_op, Rot_op@Rot_op)
-        H_1x1y = J2*H
-        H_n2x1y = J2*np.einsum('ixjy,xa,yb->iajb', H, Rot_op, Rot_op)
-        H_n1x2y = J2*np.einsum('ixjy,xa,yb->iajb', H, Rot_op @ Rot_op, Rot_op @ Rot_op)
-        pattern = np.array([[0]])
-    else:
-        H_1x0y, H_0x1y, H_n1x1y, H_n2x1y, H_n1x2y, H_1x1y = J*H, J*H, J*H, J2*H, J2*H, J2*H
-        pattern = np.array([[0, 1, 2], [2, 0, 1], [1, 2, 0]])
+    H3 = np.einsum('ijab,kc->ijkabc', H2, id2) + np.einsum('ikac,jb->ijkabc', H2, id2) + np.einsum('jkbc,ia->ijkabc', H2, id2)
+    H_tri_nn = J * H3
+    H_tri_nnn = J2 * H3
+    # H_1x0y, H_0x1y, H_n1x1y, H_n2x1y, H_n1x2y, H_1x1y = J*H, J*H, J*H, J2*H, J2*H, J2*H
+
+    # pattern = np.array([[0, 1, 2], [2, 0, 1], [1, 2, 0]])
+    pattern = np.array([[0]])
     H = Hamiltonian(pattern=pattern)
 
-    H.fill((1, 0), H_1x0y, tag="H_1x0y")  # H_nn_h
-    H.fill((0, 1), H_0x1y, tag="H_0x1y")  # H_nn_v
-    H.fill((-1, 1), H_n1x1y, tag="H_n1x1y")  # H_nn_diag
+    H.fill((1, 1), H_tri_nn, tag="H_tria_nn")  # H_tria_nn
+    H.fill((2, 1), H_tri_nn, tag="H_trib_nn")  # H_trib_nn
+    H.fill((1, 2), H_tri_nn, tag="H_tric_nn")  # H_tric_nn
 
-    H.fill((1, 1), H_1x1y, tag="H_1x1y")  # H_nnn_diag
-    H.fill((-2, 1), H_n2x1y, tag="H_n2x1y")  # H_nnn_3x2
-    H.fill((-1, 2), H_n1x2y, tag="H_n1x2y")  # H_nnn_2x3
+    if abs(J2) > 0:
+        H.fill((3, 0), H_tri_nnn, tag="H_tria_nnn")  # H_tria_nnn
+        H.fill((4, 0), H_tri_nnn, tag="H_trib_nnn")  # H_trib_nnn
+        H.fill((3, 1), H_tri_nnn, tag="H_tric_nnn")  # H_tric_nnn
+
+    # H.fill((0, 1), H2, tag="H2")  # 2-site
 
     return H
 
