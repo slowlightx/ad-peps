@@ -408,9 +408,8 @@ def run_sq_static(config_file):
         N = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
         N2 = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
 
-        # for m in range(len(kxs)):
-        for m in [9]:
-            # sim = iPEPSExciSimulation(config_file, m)
+        for m in range(len(kxs)):
+        # for m in [9]:
             sim_config.px = kxs[m]
             sim_config.py = kys[m]
             print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
@@ -428,7 +427,7 @@ def run_sq_static(config_file):
                 #     s_disc = gs[ix, :].T.conjugate() @ res[1].pack_data()
                 #     N[obs_i, m] += (sA[ix, :].T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc)**2
 
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
                 print(f"Norm_Exci: {N[obs_i, m]}")
                 # onp.savez(output_file, N=N)
         print(N)
