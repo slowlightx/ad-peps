@@ -130,7 +130,10 @@ if __name__ == "__main__":
             elif args.init:
                 run_ipeps_trgl_exci.prepare(args.config_file)
             else:
-                run_ipeps_trgl_exci.run(args.config_file, args.momentum_ix - 1)
+                if args.momentum_ix > 0:
+                    run_ipeps_trgl_exci.run(args.config_file, args.momentum_ix - 1)
+                else:
+                    run_ipeps_trgl_exci.run_sq_static(args.config_file)
         elif args.lat == "dstt_trgl":
             if args.evaluate:
                 run_ipeps_dstt_trgl_exci.evaluate(args.config_file, args.momentum_ix - 1)
@@ -144,7 +147,10 @@ if __name__ == "__main__":
             elif args.init:
                 run_ipeps_trgl_grp_exci.prepare(args.config_file)
             else:
-                run_ipeps_trgl_grp_exci.run(args.config_file, args.momentum_ix - 1)
+                if args.momentum_ix > 0:
+                    run_ipeps_trgl_grp_exci.run(args.config_file, args.momentum_ix - 1)
+                else:
+                    run_ipeps_trgl_grp_exci.run_sq_static(args.config_file)
         else:
             if args.evaluate:
                 run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)

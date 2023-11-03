@@ -156,6 +156,23 @@ class iPEPS:
         print("Energy:", jax.lax.stop_gradient(E).item())
         return E
 
+    def compute_obs(self, tensors):
+        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        return obs
+
+    def evaluate_obs(self):
+        obs = self.compute_obs(self.tensors)
+        obs_vals = []
+        obs_names = []
+        s_names = ["Sx", "Sy", "Sz"]
+        for pos in [0, 1]:
+            for i in range(3):
+                obs_vals.append(obs[i][pos, 0].real)
+                obs_names.append(f"{s_names[i]}{pos%2}")
+        print("Obs Expr:" + ", ".join([f"{v}" for v in obs_names]))
+        print("Obs: " + ", ".join([f"{v}" for v in obs_vals]))
+        return obs_vals
+
     """ Input/output methods """
 
     def numel(self):

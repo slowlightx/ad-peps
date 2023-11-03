@@ -11,6 +11,7 @@ from adpeps.utils.empty_tensor import EmptyT
 from adpeps.utils.nested import Nested
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
+from .models.common import sigmam, sigmap, sigmaz, id2
 
 """
     Evaluation module for iPEPS simulations
@@ -48,7 +49,8 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     Evs_exci = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
     nrmhs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
     nrmvs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
-    obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
+    # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
+    obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
 
     for i in A.x_major():
         with cur_loc(i):
@@ -65,7 +67,15 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 Ehs[0, 1] = ncon([roh, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
                 Evs[0, 0] = ncon([rov, H], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
-                # if measure_obs:
+                if measure_obs:
+                    ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
+                    for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
+                        try:
+                            obs_ev = ncon([ro_one, obs], ([1, 2], [1, 2]))
+                            norm = ncon([ro_one, id2], ([1, 2], [1, 2]))
+                            obs_evs[obs_i][0, 0] = obs_ev / norm
+                        except:
+                            obs_evs[obs_i][0, 0] = np.nan
                 #     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
                 #     for obs_i,obs in enumerate(tensors.observables):
                 #         if obs.size == 1:
@@ -464,3 +474,19 @@ def _get_dm_h(C1, C2, C3, C4, T1l, T1r, T2, T3l, T3r, T4, Al, Ar, Adl, Adr):
     # Contract
     roh = ncon([Cc2, Cc3], "dm_roh")
     return roh
+
+
+def get_one_site_dm(Cs, Ts, A, Ad):
+    # Tensors that are part of 1-site reduced density matrix
+    C1 = Cs[0][-1, -1]
+    C2 = Cs[1][1, -1]
+    C3 = Cs[2][1, 1]
+    C4 = Cs[3][-1, 1]
+    T1 = Ts[0][0, -1]
+    T2 = Ts[1][1, 0]
+    T3 = Ts[2][0, 1]
+    T4 = Ts[3][-1, 0]
+
+    ro1_no_op = ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
+    ro1 = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1,2,3,4,5,6,7,8], [-1,1,2,3,4], [-2,5,6,7,8]))
+    return ro1

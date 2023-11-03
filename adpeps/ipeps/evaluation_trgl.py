@@ -1,4 +1,5 @@
 import cmath
+import pdb
 
 import jax.numpy as np
 import numpy as onp
@@ -80,7 +81,8 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 nrmh = np.trace(np.reshape(roh[0], (4, 4))).real
                 nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
                 nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
-
+                # import pdb;
+                # if int(i)==0: pdb.set_trace()
                 nrmhs[0, 0] = nrmh
                 nrmvs[0, 0] = nrmv
                 nrmds[1, 0] = nrmd
@@ -119,6 +121,7 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                     E0s[((0, 0), (1, 1))] = E1x1ys[0, 0][0]
 
                 if measure_obs:
+                    # import pdb;pdb.set_trace()
                     ro_one = get_one_site_dm(tensors.Cs,tensors.Ts,A,Ad)
                     for obs_i, obs in enumerate([(sigmap+sigmam)/2, 1j*(sigmam-sigmap)/2, sigmaz/2]):
                         try:

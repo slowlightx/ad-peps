@@ -82,69 +82,45 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     # |  /
     # c2
 
-    Etrias = TList(shape=A.size, pattern=A.pattern)  # a0-b0-c0 triangular terms
-    Etribs = TList(shape=A.size, pattern=A.pattern)  # b0-c1-a3 triangular terms
-    Etrics = TList(shape=A.size, pattern=A.pattern)  # c0-a3-b2 triangular terms
-    Etriannns = TList(shape=A.size, pattern=A.pattern)  # a0-a1-a3 triangular terms
-    Etribnnns = TList(shape=A.size, pattern=A.pattern)  # b0-b1-b3 triangular terms
-    Etricnnns = TList(shape=A.size, pattern=A.pattern)  # c0-c1-c3 triangular terms
-    # Etrias_exci = TList(shape=A.size, pattern=A.pattern)
-    # Etribs_exci = TList(shape=A.size, pattern=A.pattern)
-    # Etrics_exci = TList(shape=A.size, pattern=A.pattern)
 
-    nrmtrias = TList(shape=A.size, pattern=A.pattern)  # a0-b0-c0 triangular terms
-    nrmtribs = TList(shape=A.size, pattern=A.pattern)  # b0-c1-a3 triangular terms
-    nrmtrics = TList(shape=A.size, pattern=A.pattern)  # c1-a4-b3 triangular terms
-    nrmtriannns = TList(shape=A.size, pattern=A.pattern)  # a0-a1-a3 triangular terms
-    nrmtribnnns = TList(shape=A.size, pattern=A.pattern)  # b0-b1-b3 triangular terms
-    nrmtricnnns = TList(shape=A.size, pattern=A.pattern)  # c0-c1-c3 triangular terms
+    Ehes = TList(shape=A.size, pattern=A.pattern)
+    Ehos = TList(shape=A.size, pattern=A.pattern)
+    Eves = TList(shape=A.size, pattern=A.pattern)
+    Evos = TList(shape=A.size, pattern=A.pattern)
+    Edes = TList(shape=A.size, pattern=A.pattern)
+    Edos = TList(shape=A.size, pattern=A.pattern)
+
+
+
+    nrmhes = TList(shape=A.size, pattern=A.pattern)  # a0-b0-c0 triangular terms
+    nrmhos = TList(shape=A.size, pattern=A.pattern)  # b0-c1-a3 triangular terms
+    nrmves = TList(shape=A.size, pattern=A.pattern)  # c1-a4-b3 triangular terms
+    nrmvos = TList(shape=A.size, pattern=A.pattern)  # a0-a1-a3 triangular terms
+    nrmdes = TList(shape=A.size, pattern=A.pattern)  # b0-b1-b3 triangular terms
+    nrmdos = TList(shape=A.size, pattern=A.pattern)  # c0-c1-c3 triangular terms
     # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
-    obs_evs = {s: [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]] for s in ['a', 'b', 'c']}
-    E0s = Hamiltonian(pattern=A.pattern)
+    obs_evs = {s: [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]] for s in ['a', 'b']}
+
+    pattern = np.array([[0, 1], [0, 1]])
+    E0s = Hamiltonian(pattern=pattern)
 
     for i in A.x_major():
         with cur_loc(i):
-            if not Etrias.is_changed(0, 0):
+            if not Ehes.is_changed(0, 0):
                 # (1) Construct all the 2-body density matrices individually for the energy evaluation
-                # roh, rov, rod, ron2x1y, ron1x2y, ro1x1y = get_dms(tensors)
-                #
-                # nrmh = np.trace(np.reshape(roh[0], (4, 4))).real
-                # nrmv = np.trace(np.reshape(rov[0], (4, 4))).real
-                # nrmd = np.trace(np.reshape(rod[0], (4, 4))).real
-                # nrmn2x1y = np.trace(np.reshape(ron2x1y[0], (4, 4))).real
-                # nrmn1x2y = np.trace(np.reshape(ron1x2y[0], (4, 4))).real
-                # nrm1x1y = np.trace(np.reshape(ro1x1y[0], (4, 4))).real
-                #
-                # nrmhs[0, 0] = nrmh
-                # nrmvs[0, 0] = nrmv
-                # nrmds[1, 0] = nrmd
-                # nrmn2x1ys[2, 0] = nrmn2x1y
-                # nrmn1x2ys[1, 0] = nrmn1x2y
-                # nrm1x1ys[0, 0] = nrm1x1y
-                #
-                # roh = roh / nrmh
-                # rov = rov / nrmv
-                # rod = rod / nrmd
-                # ron2x1y = ron2x1y / nrmn2x1y
-                # ron1x2y = ron1x2y / nrmn1x2y
-                # ro1x1y = ro1x1y / nrm1x1y
-                #
-                # Ehs[0, 0] = ncon([roh, H[((0, 0), (1, 0))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Evs[0, 0] = ncon([rov, H[((0, 0), (0, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # Eds[1, 0] = ncon([rod, H[((0, 0), (-1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # En2x1ys[2, 0] = ncon([ron2x1y, H[((0, 0), (-2, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # En1x2ys[1, 0] = ncon([ron1x2y, H[((0, 0), (-1, 2))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                # E1x1ys[0, 0] = ncon([ro1x1y, H[((0, 0), (1, 1))]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
 
                 # (2) Construct 3-body density matrices for the energy evaluation (2-body still needed for bonds evaluation)
-                if abs(sim_config.model_params['J2']) > 0:
-                    rotria, rotrib, rotric, rotria_nnn, rotrib_nnn, rotric_nnn = get_dms_tri(tensors)
-                else:
-                    rotria, rotrib, rotric = get_dms_tri(tensors, only_nn=True)
+                rohe, rove, rode, roho, rovo, rodo = get_dms(tensors)
 
-                nrma = np.trace(np.reshape(rotria[0], (8, 8))).real
-                nrmb = np.trace(np.reshape(rotrib[0], (8, 8))).real
-                nrmc = np.trace(np.reshape(rotric[0], (8, 8))).real
+                nrmhe = np.trace(np.reshape(rohe[0], (4, 4))).real
+                nrmho = np.trace(np.reshape(roho[0], (4, 4))).real
+                nrmve = np.trace(np.reshape(rove[0], (4, 4))).real
+                nrmvo = np.trace(np.reshape(rovo[0], (4, 4))).real
+                nrmde = np.trace(np.reshape(rode[0], (4, 4))).real
+                nrmdo = np.trace(np.reshape(rodo[0], (4, 4))).real
+
+                nrmhes[0, 0] = nrmhe
+
                 nrmtrias[0, 0] = nrma
                 nrmtribs[0, 0] = nrmb
                 nrmtrics[0, 0] = nrmc
@@ -451,8 +427,7 @@ def filter_null_modes(tensors, basis):
     basis = basis @ linalg.null_space(nulls.conjugate().T)
     return basis
 
-
-def get_dms_tri(ts, only_gs=False, only_nn=False):
+def get_dms(ts, only_gs=False, only_nn=False):
     """Returns the two-site reduced density matrices
 
     This function relies on the Nested class, which contains
@@ -528,6 +503,22 @@ def get_dms_tri(ts, only_gs=False, only_nn=False):
         A[0, 0],
         Ad[0, 0],
     ]
+    h_tensors = [
+        C1[-1, -1],
+        C2[2, -1],
+        C3[2, 1],
+        C4[-1, 1],
+        T1[0, -1],
+        T1[1, -1],
+        T2[2, 0],
+        T3[0, 1],
+        T3[1, 1],
+        T4[-1, 0],
+        A[0, 0],
+        A[1, 0],
+        Ad[0, 0],
+        Ad[1, 0],
+    ]
     p_tensors = [
         C1[-1, -1],
         C2[2, -1],
@@ -552,27 +543,23 @@ def get_dms_tri(ts, only_gs=False, only_nn=False):
     ]
 
     # Regular variant
-    roa = _get_dm_tria(*s_tensors)
-    rob = _get_dm_tri(*p_tensors, stk=['b', 'c', 'n', 'a'])
-    # rop = _get_dm_p(*p_tensors)
-    roc = _get_dm_tri(*p_tensors, stk=['c', 'n', 'b', 'a'])
-    if only_nn:
-        return roa, rob, roc
-    else:
-        roa2 = _get_dm_tri(*p_tensors, stk=['a', 'a', 'n', 'a'])
-        rob2 = _get_dm_tri(*p_tensors, stk=['b', 'b', 'n', 'b'])
-        roc2 = _get_dm_tri(*p_tensors, stk=['c', 'c', 'n', 'c'])
-
-        return roa, rob, roc, roa2, rob2, roc2
+    rohe = _get_dm_2x1(*h_tensors, stk=['b', 'a'])
+    roho = _get_dm_2x2(*p_tensors, stk=['a', 'n', 'n', 'b'])
+    rove = _get_dm_1x1(*s_tensors)
+    rovo = _get_dm_2x2(*p_tensors, stk=['n', 'a', 'n', 'b'])
+    rode = _get_dm_2x1(*h_tensors, stk=['a', 'a'])
+    rodo = _get_dm_2x1(*h_tensors, stk=['b', 'b'])
 
 
-def _get_dm_tria(C1, C2, C3, C4, T1, T2, T3, T4, A, Ad):
+def _get_dm_1x1(C1, C2, C3, C4, T1, T2, T3, T4, A, Ad):
     """Regular variant
 
     A_lu (0,0) -- A_ru (1,0)
      |             |
     A_ld (0,1) -- A_rd (1,1)
     """
+    px = sim_config.px
+    py = sim_config.py
     # distortion of momentum
     # [[\sqrt{3}/2,  1/2]
     #  [\sqrt{3}/2, -1/2]]
@@ -582,14 +569,13 @@ def _get_dm_tria(C1, C2, C3, C4, T1, T2, T3, T4, A, Ad):
     lower_half = ncon([C3, T2, T3, Ad, C4], "dm_tri_single_lower")
 
     # Contract upper and lower halves
-    roa = ncon([upper_half, lower_half], "dm_tri_single")
-    # print(roa)
-    roa = roa.reshape((2, 2, 2, 2, 2, 2))
+    ro1x1 = ncon([upper_half, lower_half], "dm_tri_single")
+    ro1x1 = ro1x1.reshape((2, 2, 2, 2))
 
-    return roa
+    return ro1x1
 
 
-def _get_dm_tri(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, Adl, Adr, Adul, Adur, Addl, Addr, stk=None):
+def _get_dm_2x2(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, Adl, Adr, Adul, Adur, Addl, Addr, stk=None):
     """Regular variant
 
     A_lu (0,0) -- A_ru (1,0)
@@ -599,164 +585,133 @@ def _get_dm_tri(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur
     stk: sites to be kept on each triangle-blocks, whose order
          is given by
          stk = [stk[0,0], stk[1,0], stk[0,1], stk[1,1]]
-    E.g., stk = ['b', 'c', 'n', 'a']
+    E.g., stk = ['b', 'n', 'n', 'a']
     """
     px = sim_config.px
     py = sim_config.py
 
     D = sim_config.D
     # Reshape onsite tensor
-    if set(stk).issubset({'a', 'b', 'c', 'n'}):
-        if stk[0] in ['a', 'b', 'c']:
-            Aul = Aul.reshape([2, 2, 2, D, D, D, D])
-            Adul = Adul.reshape([2, 2, 2, D, D, D, D])
-        if stk[1] in ['a', 'b', 'c']:
-            Aur = Aur.reshape([2, 2, 2, D, D, D, D])
-            Adur = Adur.reshape([2, 2, 2, D, D, D, D])
-        if stk[2] in ['a', 'b', 'c']:
-            Adl = Adl.reshape([2, 2, 2, D, D, D, D])
-            Addl = Addl.reshape([2, 2, 2, D, D, D, D])
-        if stk[3] in ['a', 'b', 'c']:
-            Adr = Adr.reshape([2, 2, 2, D, D, D, D])
-            Addr = Addr.reshape([2, 2, 2, D, D, D, D])
+    if set(stk).issubset({'a', 'b', 'n'}):
+        if stk[0] in ['a', 'b']:
+            Aul = Aul.reshape([2, 2, D, D, D, D])
+            Adul = Adul.reshape([2, 2, D, D, D, D])
+        if stk[1] in ['a', 'b']:
+            Aur = Aur.reshape([2, 2, D, D, D, D])
+            Adur = Adur.reshape([2, 2, D, D, D, D])
+        if stk[2] in ['a', 'b']:
+            Adl = Adl.reshape([2, 2, D, D, D, D])
+            Addl = Addl.reshape([2, 2, D, D, D, D])
+        if stk[3] in ['a', 'b']:
+            Adr = Adr.reshape([2, 2, D, D, D, D])
+            Addr = Addr.reshape([2, 2, D, D, D, D])
     else:
-        raise Exception(f"Invalid stk set: {stk}; expect elements of ('a', 'b', 'c', 'n')")
+        raise Exception(f"Invalid stk set: {stk}; expect elements of ('a', 'b', 'n')")
 
     # Upper left
-    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], f"dm_tri_upper_left_{stk[0]}")  # contract
+    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], f"dm_grp2_upper_left_{stk[0]}")  # contract
 
     # Upper right
-    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], f"dm_tri_upper_right_{stk[1]}")
+    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], f"dm_grp2_upper_right_{stk[1]}")
     # Contract for upper half
-    if stk[2] == 'n':
-        upper_half = ncon([patch_upper_left, patch_upper_right], "dm_tri_upper")
-    else:
+    if stk[1] == 'n':
         upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_ro1x1y")
+    else:
+        upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_rod")
 
     # Lower left
-    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], f"dm_tri_lower_left_{stk[2]}")
+    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], f"dm_grp2_lower_left_{stk[2]}")
 
     # Lower right
-    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], f"dm_tri_lower_right_{stk[3]}")
+    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], f"dm_grp2_lower_right_{stk[3]}")
 
     # Contract for lower half
     if stk[2] == 'n':
+        lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_rod")
+    else:
         lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_ro1x1y")
-    else:
-        lower_half = ncon([patch_lower_left, patch_lower_right], "dm_tri_lower")
 
     # Contract upper and lower halves
-    if stk[2] == 'n':
-        rotri = ncon([upper_half, lower_half], "dm_tri_u")
-    else:
-        rotri = ncon([upper_half, lower_half], "dm_tri_l")
+    ro2x2 = ncon([upper_half, lower_half], "dm_ro1x1y")  # dm_ro1x1y == dm_rod
 
-    return rotri
+    return ro2x2
 
 
-def _get_dm_1x1y(C1, C2, C3, C4, T1l, T1r, T2u, T2d, T3l, T3r, T4u, T4d, Aul, Aur, Adl, Adr, Adul, Adur, Addl, Addr):
+def _get_dm_2x1(C1, C2, C3, C4, T1l, T1r, T2, T3l, T3r, T4, Al, Ar, Adl, Adr, stk=None):
     """Regular variant
 
     A_lu (0,0) -- A_ru (1,0)
-     |             |
-    A_ld (0,1) -- A_rd (1,1)
     """
     px = sim_config.px
-    py = sim_config.py
+
+    D = sim_config.D
+    # Reshape onsite tensor
+    if set(stk).issubset({'a', 'b', 'n'}):
+        if stk[0] in ['a', 'b']:
+            Al = Al.reshape([2, 2, D, D, D, D])
+            Adl = Adl.reshape([2, 2, D, D, D, D])
+        if stk[1] in ['a', 'b']:
+            Ar = Ar.reshape([2, 2, D, D, D, D])
+            Adr = Adr.reshape([2, 2, D, D, D, D])
+    else:
+        raise Exception(f"Invalid stk set: {stk}; expect elements of ('a', 'b', 'n')")
+
     # distortion of momentum
     # [[\sqrt{3}/2,  1/2]
     #  [\sqrt{3}/2, -1/2]]
     # Upper left
-    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left")
-    # Upper right
-    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right_traced")
-    # Contract for upper half
-    upper_half = ncon([patch_upper_left, patch_upper_right], "dm_upper_ro1x1y")
-
-    # Lower left
-    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left_traced")
-
-    # Lower right
-    patch_lower_right = ncon([C3.shift(px+py), T2d.shift(px+py), T3r.shift(px+py), Adr.shift(px+py), Addr.shift(px+py)], "dm_lower_right")
-    # Contract for lower half
-    lower_half = ncon([patch_lower_left, patch_lower_right], "dm_lower_ro1x1y")
-
-    # Contract upper and lower halves
-    rod = ncon([upper_half, lower_half], "dm_ro1x1y")
-    return rod
-
-
-def _get_dm_n2x1y(C1, C2, C3, C4, T1l, T1m, T1r, T2u, T2d, T3l, T3m, T3r, T4u, T4d, Aul, Aum, Aur, Adl, Adm, Adr, Adul, Adum, Adur, Addl, Addm, Addr):
-    """Regular variant
-
-    A_lu (0,0) -- A_mu (1,0) -- A_ru (2,0)
-     |             |             |
-    A_ld (0,1) -- A_md (1,1) -- A_rd (2,1)
-    """
-    px = sim_config.px
-    py = sim_config.py
-    # distortion of momentum
-    # [[\sqrt{3}/2,  1/2]
-    #  [\sqrt{3}/2, -1/2]]
-    # Upper left
-    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")  # contract
-    # Upper left + upper middle
-    patch_upper_left2 = ncon([patch_upper_left, T1m.shift(px), Aum.shift(px), Adum.shift(px)], "dm_upper_left_upper_middle_traced")
-    # Upper right
-    patch_upper_right = ncon([T1r.shift(2*px), C2.shift(2*px), T2u.shift(2*px), Aur.shift(2*px), Adur.shift(2*px)], "dm_upper_right")
-    # Contract for upper half
-    upper_half = ncon([patch_upper_left2, patch_upper_right], "dm_upper_ron2x1y")
-
-    # Lower left
-    patch_lower_left = ncon([C4.shift(py), T3l.shift(py), T4d.shift(py), Adl.shift(py), Addl.shift(py)], "dm_lower_left")
-    # Lower right
-    patch_lower_right = ncon([C3.shift(2*px+py), T2d.shift(2*px+py), T3r.shift(2*px+py), Adr.shift(2*px+py), Addr.shift(2*px+py)], "dm_lower_right_traced")
-    # Lower right + lower middle
-    patch_lower_right2 = ncon([patch_lower_right, T3m.shift(px+py), Adm.shift(px+py), Addm.shift(px+py)], "dm_lower_right_lower_middle_traced")
-    # Contract for lower half
-    lower_half = ncon([patch_lower_right2, patch_lower_left], "dm_lower_ron2x1y")
-
-    # Contract upper and lower halves
-    rod = ncon([upper_half, lower_half], "dm_ron2x1y")
-    return rod
-
-
-def _get_dm_n1x2y(C1, C2, C3, C4, T1l, T1r, T2u, T2m, T2d, T3l, T3r, T4u, T4m, T4d, Aul, Aur, Aml, Amr, Adl, Adr, Adul, Adur, Adml, Admr, Addl, Addr):
-    """Regular variant
-
-    A_lu (0,0) -- A_ru (1,0)
-     |             |
-    A_lm (0,1) -- A_rm (1,1)
-     |             |
-    A_ld (0,2) -- A_rd (1,2)
-
-    """
-    px = sim_config.px
-    py = sim_config.py
-    # distortion of momentum
-    # [[\sqrt{3}/2,  1/2]
-    #  [\sqrt{3}/2, -1/2]]
-    # Upper left
-    patch_upper_left = ncon([C1, T1l, T4u, Aul, Adul], "dm_upper_left_traced")
-    # Upper left + middle left
-    patch_upper_left2 = ncon([patch_upper_left, T4m.shift(py), Aml.shift(py), Adml.shift(py)], "dm_upper_left_left_middle_traced")
-    # Lower left
-    patch_lower_left = ncon([C4.shift(2*py), T3l.shift(2*py), T4d.shift(2*py), Adl.shift(2*py), Addl.shift(2*py)], "dm_lower_left")
+    patch_upper_left = ncon([C1, T1l, T4, Al, Adl], f"dm_grp2_upper_left_{stk[0]}")
     # Contract for left half
-    left_half = ncon([patch_upper_left2, patch_lower_left], "dm_left_ron1x2y")
+    left_half = ncon([patch_upper_left, C4, T3l], "dm_grp_left")
 
     # Upper right
-    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2u.shift(px), Aur.shift(px), Adur.shift(px)], "dm_upper_right")
-    # Lower right
-    patch_lower_right = ncon([C3.shift(px+2*py), T2d.shift(px+2*py), T3r.shift(px+2*py), Adr.shift(px+2*py), Addr.shift(px+2*py)], "dm_lower_right_traced")
-    # Lower right + lower middle
-    patch_lower_right2 = ncon([patch_lower_right, T2m.shift(px+py), Amr.shift(px+py), Admr.shift(px+py)], "dm_lower_right_right_middle_traced")
-    # Contract for lower half
-    right_half = ncon([patch_lower_right2, patch_upper_right], "dm_right_ron1x2y")
+    patch_upper_right = ncon([T1r.shift(px), C2.shift(px), T2.shift(px), Ar.shift(px), Adr.shift(px)], f"dm_grp2_upper_right_{stk[1]}")
+
+    # Contract for right half
+    right_half = ncon([patch_upper_right, C3.shift(px), T3r.shift(px)], "dm_grp_right")
 
     # Contract upper and lower halves
-    rod = ncon([left_half, right_half], "dm_ron1x2y")
-    return rod
+    ro2x1 = ncon([left_half, right_half], "dm_grp_roh")
+    return ro2x1
+
+
+def _get_dm_1x2(C1, C2, C3, C4, T1, T2u, T2d, T3, T4u, T4d, Au, Ad, Adu, Add, stk=None):
+    """Regular variant
+    A_u (0,0)
+     |
+    A_d (0,1)
+    """
+    py = sim_config.py
+
+    D = sim_config.D
+    # Reshape onsite tensor
+    if set(stk).issubset({'a', 'b', 'n'}):
+        if stk[0] in ['a', 'b']:
+            Au = Au.reshape([2, 2, D, D, D, D])
+            Adu = Adu.reshape([2, 2, D, D, D, D])
+        if stk[1] in ['a', 'b']:
+            Ad = Ad.reshape([2, 2, D, D, D, D])
+            Add = Add.reshape([2, 2, D, D, D, D])
+    else:
+        raise Exception(f"Invalid stk set: {stk}; expect elements of ('a', 'b', 'n')")
+
+    # distortion of momentum
+    # [[\sqrt{3}/2,  1/2]
+    #  [\sqrt{3}/2, -1/2]]
+    # Upper left
+    patch_upper_left = ncon([C1, T1, T4u, Au, Adu], f"dm_grp2_upper_left_{stk[0]}")  # contract
+    # Contract for upper half
+    upper_half = ncon([patch_upper_left, C2, T2u], "dm_grp_upper")
+
+    # Lower left
+    patch_lower_left = ncon([C4.shift(py), T3.shift(py), T4d.shift(py), Ad.shift(py), Add.shift(py)], f"dm_grp2_lower_left_{stk[1]}")
+
+    # Contract for lower half
+    lower_half = ncon([patch_lower_left, C3.shift(py), T2d.shift(py)], "dm_grp_lower")
+
+    # Contract upper and lower halves
+    ro1x2 = ncon([upper_half, lower_half], "dm_grp_rov")
+    return ro1x2
 
 
 def get_one_site_dm(Cs, Ts, A, Ad):
@@ -787,15 +742,13 @@ def get_one_phys_site_dm(Cs, Ts, A, Ad, stk=None):
     T4 = Ts[3][-1, 0]
 
     ro1_no_op = ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
-    ro1tri = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1, 2, 3, 4, 5, 6, 7, 8], [-1, 1, 2, 3, 4], [-2, 5, 6, 7, 8]))
+    ro1x1 = ncon((ro1_no_op, A[0, 0], Ad[0, 0]), ([1, 2, 3, 4, 5, 6, 7, 8], [-1, 1, 2, 3, 4], [-2, 5, 6, 7, 8]))
 
     if stk == 'a':
-        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([-1, 1, 2, -2, 3, 4], [1, 3], [2, 4]))
+        ro1site = ncon((ro1x1.reshape(2, 2, 2, 2), id2), ([-1, 1, -2, 2], [1, 2]))
     elif stk == 'b':
-        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([1, -1, 2, 3, -2, 4], [1, 3], [2, 4]))
-    elif stk == 'c':
-        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2), ([1, 2, -1, 3, 4, -2], [1, 3], [2, 4]))
+        ro1site = ncon((ro1x1.reshape(2, 2, 2, 2), id2), ([1, -1, 2, -2], [1, 2]))
     else:
-        ro1site = ncon((ro1tri.reshape(2, 2, 2, 2, 2, 2), id2, id2, id2), ([1, 2, 3, 4, 5, 6], [1, 4], [2, 5], [3, 6]))
+        ro1site = ncon((ro1x1.reshape(2, 2, 2, 2), id2, id2), ([1, 2, 3, 4], [1, 3], [2, 4]))
 
     return ro1site

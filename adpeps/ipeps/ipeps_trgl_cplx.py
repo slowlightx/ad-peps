@@ -49,7 +49,7 @@ import adpeps.ipeps.config as sim_config
 from adpeps.ipeps import models
 from adpeps.ipeps import evaluation_trgl as evaluation
 from adpeps.tensor.contractions import ncon
-from adpeps.utils.ctmtensors_cplx import CTMTensors
+from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 from adpeps.utils import io
@@ -191,7 +191,7 @@ class iPEPS:
     def parse_elements(self, elements):
         """Returns site tensors filled with the input elements"""
         assert (
-            elements.size == self.numel()
+            elements.size == 2 * self.numel()
         ), f"Size of input vector ({elements.size}) does not \
                 match the number of parameters of the iPEPS ({self.numel()})"
         return self.tensors.A.fill(elements, self.d, sim_config.D)
@@ -315,7 +315,7 @@ def init_A_tensor(d, D, pattern):
             with cur_loc(i, j):
                 if not A.is_changed(0, 0):
                     key, subkey = random.split(key)
-                    A[0, 0] = random.normal(key, (d, D, D, D, D))
+                    A[0, 0] = random.normal(key, (d, D, D, D, D)) + 1j * random.normal(key, (d, D, D, D, D))
     return A
 
 

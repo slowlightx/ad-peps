@@ -97,13 +97,13 @@ def make_momentum_path(name, with_plot_info=False):
                 np.linspace(pi, 0, n_per_piece),
             ]
         )
-        distort_trgl2sqr = np.array([[np.sqrt(3)/3, 1/3], [np.sqrt(3)/3, -1/3]])
-        kxs_sqr = np.zeros(kxs.shape)
-        kys_sqr = np.zeros(kys.shape)
+        distort_trgl2sqr = np.array([[np.sqrt(3)/2, 3/2], [np.sqrt(3)/2, -3/2]])
+        kxs_sqr = np.zeros(kxs.shape, dtype=float)
+        kys_sqr = np.zeros(kys.shape, dtype=float)
         for i in range(len(kxs)):
             new_k = distort_trgl2sqr@np.array([kxs[i], kys[i]])
             kxs_sqr[i] = new_k[0]
-            kys_sqr[i] = new_k[1]
+            kys_sqr[i] = round(new_k[1]+1e-10, 8)
         if with_plot_info:
             plot_info["xticks"] = {
                 "ticks": [0, 9, 18, 22, 26],

@@ -34,6 +34,12 @@ resume: bool = False
 gauge: bool = False
 """ Filter the non-physical basis """
 
+unit_cell_phase = False
+""" Phase within unit cell """
+
+num_sites: int = 1
+""" Number of sites to be grouped """
+
 base_sim: Union[str, None] = None
 """ Base simulation """
 

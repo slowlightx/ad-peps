@@ -217,9 +217,53 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     vectors = vectors[:, ixs]
 
     sx = np.array([[0, 0.5], [0.5, 0]])
-    sy = np.array([[0, -0.5], [0.5, 0]])
+    sy = np.array([[0, -0.5j], [0.5j, 0]])
     sz = np.array([[0.5, 0], [0, -0.5]])
     ops = [sx, sy, sz]
+    if momentum_ix in [9, 22]:
+        print(ev.real)
+        print(ev_N.real)
+    is_test = True
+    if is_test:
+        Na = N[:31, :31]
+        Nb = N[31:, 31:]
+        Ha = H[:31, :31]
+        Hb = H[31:, 31:]
+        # print(np.sum(np.abs(N[:31, 31:])+np.sum(np.abs(N[62:, :62]))+np.sum(np.abs(N[31:62, :31]))+np.sum(np.abs(N[31:62, 62:]))))
+        bases = [basis[:32, :31], basis[32:, 31:]]
+
+        Ns = [Na, Nb]
+        Hs = [Ha, Hb]
+        N2s = []
+        vectorss = []
+        Ps = []
+        evs = []
+        ixss = []
+        for i in range(len(Ns)):
+            Nt = Ns[i]
+            Ht = Hs[i]
+            ev_Nt, Pt = np.linalg.eig(Nt)
+            idxt = ev_Nt.real.argsort()[::-1]
+            ev_Nt = ev_Nt[idxt]
+            selectedt = (ev_Nt / ev_Nt.max()) > 1e-3
+            Pt = Pt[:, idxt]
+            Pt = Pt[:, selectedt]
+            Nt2 = Pt.T.conjugate() @ Nt @ Pt
+            Ht2 = Pt.T.conjugate() @ Ht @ Pt
+            Nt2 = 0.5 * (Nt2 + Nt2.T.conjugate())
+            Ht2 = 0.5 * (Ht2 + Ht2.T.conjugate())
+            evt, vectorst = eig(Ht2, Nt2)
+            ixst = np.argsort(evt)
+            evt = evt[ixst]
+            vectorst = vectorst[:, ixst]
+            N2s.append(Nt2)
+            Ps.append(Pt)
+            vectorss.append(vectorst)
+            ixss.append(ixst)
+            evs.append(evt)
+            if momentum_ix in [9, 22]:
+                print(evt.real)
+                print(ev_Nt.real)
 
     A = peps.tensors.A
     gs_with_ops = []
@@ -233,7 +277,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
                     if gs is None:
                         gs = ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
                     else:
-                        gs = np.concatenate((gs, ncon((op, A[i, 0]), ([-1, 1], [1, -2, -3, -4, -5]))), axis=0)
+                        gs = np.concatenate((gs, ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))), axis=0)
         gs = np.reshape(gs, (-1))
         gs_with_ops.append(gs)
 
@@ -301,12 +345,12 @@ def evaluate(config_file, momentum_ix):
         obs_file = Path(foldername, filename).with_suffix(".npz")
         fig_name = Path(foldername, "sqw_perp").with_suffix(".pdf")
 
-        if not obs_file.exists() or not cfg.resume:
+        if not obs_file.exists() or not sim_config.resume:
             def intensity_func(q, w, eta, ev, sw, amp=100000):
                 # return amp*np.sum(np.array([np.exp(-1/eta*(w-ev[ia])**2)*sw[ia] for ia in range(len(sw))]))
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
-            eta0 = 0.02
+            eta0 = 0.0002
             freq = np.arange(0, np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))])), 0.02)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
@@ -315,7 +359,7 @@ def evaluate(config_file, momentum_ix):
                     for s in range(3):
                         # DSSF_SPEC[i, j] = intensity_func(kxs[j], freq[i], 0.01, evs[j], obs[j][-1])
                         DSSF_SPEC = DSSF_SPEC.at[i, j, s].set(intensity_func(kxs[j], freq[i], eta0, evs_full[j], obs[j][s]))
-            np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
+            # np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
         else:
             data = np.load(obs_file, allow_pickle=True)
             DSSF_SPEC = data["spectrum"]

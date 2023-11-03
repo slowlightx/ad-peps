@@ -17,7 +17,7 @@ from yaml import dump, safe_load
 
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps.ipeps import iPEPS, iPEPS_exci
-from adpeps.ipeps.ipeps_trgl import iPEPS, iPEPS_exci
+from adpeps.ipeps.ipeps_trgl_cplx import iPEPS, iPEPS_exci
 # from adpeps.ipeps.ipeps_dstt_trgl import iPEPS, iPEPS_exci
 from adpeps.utils import io
 from adpeps.utils.printing import print
@@ -98,7 +98,7 @@ def run(config_file: str):
     else:
         print("Starting new simulation")
         key = random.PRNGKey(sim_config.seed)
-        v = random.normal(key, (peps.numel(),))
+        v = random.normal(key, (2 * peps.numel(),))
         v = v / np.max(np.abs(v))
 
     obj = Objective(peps)
@@ -106,8 +106,6 @@ def run(config_file: str):
     # Call SciPy's optimization function
     obj.return_gn = False
     xL = optimize.minimize(
-        # obj.out,
-        # v,
         obj.out,
         v,
         method=sim_config.method,
@@ -160,7 +158,8 @@ class Objective:
 
         # Cast the regular numpy array into a Jax numpy array for gradient tracking
         v = np.array(v)
-        v = v / np.max(np.abs(v))
+        v_cplx = v[:len(v)//2] + v[len(v)//2:]*1j
+        v = v / np.max(np.abs(v_cplx))
 
         if (
             self.cached_jac is not None

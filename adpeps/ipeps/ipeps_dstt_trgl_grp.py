@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_trgl as evaluation
+from adpeps.ipeps import evaluation_trgl_grp as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -68,9 +68,10 @@ class iPEPS:
         # Load model Hamiltonian, observables
         model = getattr(models, sim_config.model)
         self.H, self.observables = model.setup()
-
+        self.num_sites = int(sim_config.num_sites)
         # Initialize tensors
-        self.d = self.H.shape[0]
+        self.d = self.H.shape[0] ** self.num_sites
+        # self.d = self.H.shape[0]
         if sim_config.init_from_tensors:
             filename = io.get_gs_raw_tensors_file()
             print(filename)
@@ -132,7 +133,7 @@ class iPEPS:
         return E
 
     def compute_obs(self, tensors):
-        E, _nrm, obs, E0s = evaluation.get_obs(self.H, tensors, measure_obs=True)
+        E, _nrm, obs, _ = evaluation.get_obs(self.H, tensors, measure_obs=True)
         return obs
 
     def converge_boundaries(self):
@@ -174,10 +175,10 @@ class iPEPS:
         obs_vals = []
         obs_names = []
         s_names = ["Sx", "Sy", "Sz"]
-        for pos in [0, 1, -1]:
+        for s in range(self.num_sites):
             for i in range(3):
-                obs_vals.append(obs[i][pos, 0].real)
-                obs_names.append(f"{s_names[i]}{pos%3}")
+                obs_vals.append(obs[s][i][0, 0].real)
+                obs_names.append(f"{s_names[i]}{s}")
         print("Obs Expr:" + ", ".join([f"{v}" for v in obs_names]))
         print("Obs: " + ", ".join([f"{v}" for v in obs_vals]))
         return obs_vals
@@ -237,8 +238,6 @@ class iPEPS_exci(iPEPS):
         print(f"GS norm {nrm0}", level=1)
 
     def substract_gs_energy(self):
-        # E, _ = evaluation.get_gs_energy(self.H, self.tensors)
-        # E = E / 3
         E, _, E0s = evaluation.get_gs_energy_bondwise(self.H, self.tensors)
         print(f"Substracting {E} from Hamiltonian bond-wisely", level=1)
         # pt = TList(pattern=self.H._H.pattern)
@@ -249,9 +248,12 @@ class iPEPS_exci(iPEPS):
                     # pt.mark_changed(i)
                     self.H._H.mark_changed(i)
                     for shape, hterm in h.items():
-                        h[shape] = hterm.copy() - E0s[(0, 0), shape] * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
-                        print(f"{(i, shape)} {E0s[(0, 0), shape]}")
+                        hshape = hterm.shape
+                        h[shape] = hterm.copy() - E0s[((0, 0), shape)] * np.reshape(np.eye(int(np.prod(np.array(hshape)) ** 0.5)), hshape)
+                        # h[shape] = hterm.copy() - E0s[((0, 0), shape)] * np.reshape(np.eye(self.H.shape[0] ** 3), self.H.shape)
+
         # self.H = self.H - E * np.reshape(np.eye(self.H.shape[0] ** 2), self.H.shape)
+        # self.H = np.reshape(np.eye(self.H.shape[0]**2), self.H.shape)
 
     def evaluate(self):
         E = evaluation.get_all_energy(self.H, self.tensors)
@@ -372,4 +374,20 @@ def init_ctm_tensors(A, Ad):
                     ncon([A[0, 0], Ad[0, 0]], ([1, -1, 2, 3, 4], [1, -2, 2, 3, 4])),
                     axis=(0, 1),
                 )
+                # Ts[0][0, 0] = np.expand_dims(
+                #     ncon([A[0, 0], Ad[0, 0]], ([1, 2, 3, 4, 5, 6, -1], [1, 2, 3, 4, 5, 6, -2])),
+                #     axis=(0, 1),
+                # )
+                # Ts[1][0, 0] = np.expand_dims(
+                #     ncon([A[0, 0], Ad[0, 0]], ([1, 2, 3, 4, 5, -1, 6], [1, 2, 3, 4, 5, -2, 6])),
+                #     axis=(0, 1),
+                # )
+                # Ts[2][0, 0] = np.expand_dims(
+                #     ncon([A[0, 0], Ad[0, 0]], ([1, 2, 3, 4, -1, 5, 6], [1, 2, 3, 4, -2, 5, 6])),
+                #     axis=(0, 1),
+                # )
+                # Ts[3][0, 0] = np.expand_dims(
+                #     ncon([A[0, 0], Ad[0, 0]], ([1, 2, 3, -1, 4, 5, 6], [1, 2, 3, -2, 4, 5, 6])),
+                #     axis=(0, 1),
+                # )
     return Cs, Ts

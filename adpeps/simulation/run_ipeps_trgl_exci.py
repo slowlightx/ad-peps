@@ -25,8 +25,8 @@ from adpeps.utils import io
 from adpeps.utils.printing import print
 from adpeps.utils.tlist import TList, cur_loc, set_pattern
 
-import cmath
 from adpeps.tensor.contractions import ncon
+
 
 def run(config_file: str, momentum_ix: int):
     """Start the simulation
@@ -167,7 +167,7 @@ def evaluate_single(config_file, momentum_ix):
     return sorted(ev.real)
 
 
-def evaluate_spectral_weight(config_file, momentum_ix):
+def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
     def _compute_ev_red_basis(H, N, P, n):
         P = P[:, :n]
         N2 = P.T.conjugate() @ N @ P
@@ -205,7 +205,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     ev_N, P = np.linalg.eig(N)
     idx = ev_N.real.argsort()[::-1]
     ev_N = ev_N[idx]
-    selected = (ev_N / ev_N.max()) > 1e-3
+    selected = (ev_N / ev_N.max()) > tol_norm
     P = P[:, idx]
     P = P[:, selected]
     N2 = P.T.conjugate() @ N @ P
@@ -221,111 +221,225 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     sy = np.array([[0, -0.5j], [0.5j, 0]])
     sz = np.array([[0.5, 0], [0, -0.5]])
     idp = np.array([[1, 0], [0, 1]])
-    ops = [sx, sy, sz]
 
-    is_test = True  # is_test
-    if is_test:
-        Na = N[:31, :31]
-        Nb = N[31:62, 31:62]
-        Nc = N[62:, 62:]
-        Ha = H[:31, :31]
-        Hb = H[31:62, 31:62]
-        Hc = H[62:, 62:]
-        print(np.sum(np.abs(N[:31, 31:])+np.sum(np.abs(N[62:, :62]))+np.sum(np.abs(N[31:62, :31]))+np.sum(np.abs(N[31:62, 62:]))))
-        bases = [basis[:32, :31], basis[32:64, 31:62], basis[64:, 62:]]
+    # # Ground state
+    obs_gs = peps.evaluate_obs()
+    ops = [sx, sy, sz, idp]
+    A = peps.tensors.A
+    t = peps.tensors
 
-        Ns = [Na, Nb, Nc]
-        Hs = [Ha, Hb, Hc]
-        N2s = []
-        vectorss = []
-        Ps = []
-        evs = []
-        ixss = []
-        for i in range(len(Ns)):
-            Nt = Ns[i]
-            Ht = Hs[i]
-            ev_Nt, Pt = np.linalg.eig(Nt)
-            idxt = ev_Nt.real.argsort()[::-1]
-            ev_Nt = ev_Nt[idxt]
-            selectedt = (ev_Nt / ev_Nt.max()) > 1e-18
-            Pt = Pt[:, idxt]
-            Pt = Pt[:, selectedt]
-            Nt2 = Pt.T.conjugate() @ Nt @ Pt
-            Ht2 = Pt.T.conjugate() @ Ht @ Pt
-            Nt2 = 0.5 * (Nt2 + Nt2.T.conjugate())
-            Ht2 = 0.5 * (Ht2 + Ht2.T.conjugate())
-            evt, vectorst = eig(Ht2, Nt2)
-            ixst = np.argsort(evt)
-            evt = evt[ixst]
-            vectorst = vectorst[:, ixst]
-            N2s.append(Nt2)
-            Ps.append(Pt)
-            vectorss.append(vectorst)
-            ixss.append(ixst)
-            evs.append(evt)
+    def get_single_site_dm(C1, T1, C2, T2, C3, T3, C4, T4):
+        return ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
 
+    env_0s = TList(shape=A.size, pattern=A.pattern)
+    nrms = TList(shape=A.size, pattern=A.pattern)
+    for i in A.x_major():
+        with cur_loc(i):
+            if not nrms.is_changed(0, 0):
+                n_tensors = [
+                    t.Cs[0][-1, -1],
+                    t.Ts[0][0, -1],
+                    t.Cs[1][1, -1],
+                    t.Ts[1][1, 0],
+                    t.Cs[2][1, 1],
+                    t.Ts[2][0, 1],
+                    t.Cs[3][-1, 1],
+                    t.Ts[3][-1, 0],
+                ]
+                # Compute the ground state one-site reduced density matrix
+                n_dm = get_single_site_dm(*n_tensors)
+                nrm0 = ncon(
+                    (t.A[0, 0], t.Ad[0, 0], n_dm),
+                    ([1, 2, 3, 4, 5], [1, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8, 9]),
+                )
+                nrms[0, 0] = nrm0
+                env_0 = ncon(
+                    (peps.tensors.Ad[0, 0], n_dm),
+                    ([-1, 6, 7, 8, 9], [-2, -3, -4, -5, 6, 7, 8, 9]),
+                )
+                env_0s[0, 0] = env_0
+
+    #  substract ground state expectation value of spin operators
+    ops_exci = [TList(shape=A.size, pattern=A.pattern) for _ in range(len(ops))]
+    nrms1 = TList(shape=A.size, pattern=A.pattern)
+    for i in A.x_major():
+        with cur_loc(i):
+            if not nrms1.is_changed(0, 0):
+                nrms1.mark_changed(i)
+                for obs_i in range(len(ops)):
+                    if obs_i < 3:
+                        ops_exci[obs_i][0, 0] = ops[obs_i] - 0*obs_gs[obs_i+int(i)*3] * idp
+                    else:
+                        ops_exci[obs_i][0, 0] = ops[obs_i]
+    gs_with_ops = []
+    for op_exci in ops_exci:
+        gs_with_op = None
+        nrms2 = TList(shape=A.size, pattern=A.pattern)
+        for i in A.x_major():
+            with cur_loc(i):
+                if not nrms2.is_changed(0, 0):
+                    nrms2.mark_changed(i)
+                    A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
+                    norm_gs = np.einsum('uijkl,uijkl', env_0s[0, 0], env_0s[0, 0])
+                    A_op = A_op - 0 * np.einsum('uijkl,uijkl', A_op, env_0s[0, 0]) * env_0s[0, 0] / norm_gs
+                    # norm_gs = np.einsum('uijkl,uijkl', A[0, 0], A[0, 0])
+                    # A_op = A_op - 1*np.einsum('uijkl,uijkl', A_op, A[0, 0]) * A[0, 0] / norm_gs
+                    if gs_with_op is None:
+                        gs_with_op = A_op
+                    else:
+                        gs_with_op = np.concatenate((gs_with_op, A_op), axis=0)
+        gs_with_op = np.reshape(gs_with_op, (-1))
+        gs_with_ops.append(gs_with_op)
+
+    # basis2 = basis @ P @ vectors
+    basis2 = basis @ P @ N2 @ vectors
+    print("Basis number: ", vectors.shape[1])
+    spectral_weight = []
+    for gs_with_op in gs_with_ops[:-1]:
+        # sw = basis2.T @ gs_with_op
+        # norm = np.sum(np.abs(basis2.T @ gs_with_ops[-1])**2)
+        norm = 1
+        sw = basis2.T @ gs_with_op / np.sqrt(norm)
+
+        overlap_with_gs = N @ basis.T @ gs_with_ops[-1]
+        print(np.sum(np.abs(overlap_with_gs)**2))
+        # print(norm)
+        spectral_weight.append(np.abs(sw)**2)
+    return spectral_weight, ev.real
+
+
+def run_sq_static(config_file):
+    with open(config_file) as f:
+        cfg = safe_load(f)
+
+    sim_config.from_dict(cfg)
+    from pathlib import Path
+    output_file = Path(io.get_exci_folder(), "sq_static.npz")
+    print(output_file)
+    if not output_file.exists():
+        sx = np.array([[0, 0.5], [0.5, 0]])
+        sy = np.array([[0, -0.5j], [0.5j, 0]])
+        sz = np.array([[0.5, 0], [0, -0.5]])
+        idp = np.array([[1, 0], [0, 1]])
+        ops = [sx, sy, sz]
+
+        base_file = io.get_exci_base_file()
+        base_sim = np.load(base_file, allow_pickle=True)
+        peps = base_sim["peps"].item()
+        peps.__class__ = iPEPS_exci
+        # substract ground state expectation value of spin operators
         A = peps.tensors.A
-        spectral_weight = []
-        for op in ops:
-            sw = None
-            for i in range(len(Ns)):
-                gs_with_op = ncon((op, A[i, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
-                gs_with_op = np.reshape(gs_with_op, (-1))
-                basis2t = bases[i] @ Ps[i] @ N2s[i] @ vectorss[i]
-                # basis2t = bases[i] @ Ps[i] @ N2s[i]
-                # basis2t = basis2t[:, ixss[i]]
-                if sw is None:
-                    sw = basis2t.T @ gs_with_op
-                else:
-                    sw = np.concatenate((sw, basis2t.T @ gs_with_op), axis=0)
-                    # sw += basis2t.T @ gs_with_op
-            if momentum_ix == 9:
-                # print(sw)
-                tmpsw = np.split(sw.real, 3)
+        t = peps.tensors
 
-                print(tmpsw[0]+tmpsw[1]+tmpsw[2])
-            spectral_weight.append(np.abs(sw)**2)
-        ev = None
-        for i in range(len(evs)):
-            if ev is None:
-                ev = evs[i]
-            else:
-                # ev += evs[i]
-                ev = np.concatenate((ev, evs[i]), axis=0)
-        if momentum_ix == 9:
-            print(ev.real)
-        return spectral_weight, ev.real
-    else:
-        A = peps.tensors.A
+        def get_single_site_dm(C1, T1, C2, T2, C3, T3, C4, T4):
+            return ncon((C2, T1, C1, T4, C4, T3, C3, T2), "dm_single_site")
+
+        env_0s = TList(shape=A.size, pattern=A.pattern)
+        nrms = TList(shape=A.size, pattern=A.pattern)
+        for i in A.x_major():
+            with cur_loc(i):
+                if not nrms.is_changed(0, 0):
+                    n_tensors = [
+                        t.Cs[0][-1, -1],
+                        t.Ts[0][0, -1],
+                        t.Cs[1][1, -1],
+                        t.Ts[1][1, 0],
+                        t.Cs[2][1, 1],
+                        t.Ts[2][0, 1],
+                        t.Cs[3][-1, 1],
+                        t.Ts[3][-1, 0],
+                    ]
+                    # Compute the ground state one-site reduced density matrix
+                    n_dm = get_single_site_dm(*n_tensors)
+                    nrm0 = ncon(
+                        (t.A[0, 0], t.Ad[0, 0], n_dm),
+                        ([1, 2, 3, 4, 5], [1, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8, 9]),
+                    )
+                    nrms[0, 0] = nrm0
+                    env_0 = ncon(
+                        (peps.tensors.Ad[0, 0], n_dm),
+                        ([-1, 6, 7, 8, 9], [-2, -3, -4, -5, 6, 7, 8, 9]),
+                    )
+                    env_0s[0, 0] = env_0
+        obs_gs = peps.evaluate_obs()
+        ops_exci = [TList(shape=A.size, pattern=A.pattern) for _ in range(len(ops))]
+        nrms1 = TList(shape=A.size, pattern=A.pattern)
+        gs = None
+        for i in A.x_major():
+            with cur_loc(i):
+                if not nrms1.is_changed(0, 0):
+                    nrms1.mark_changed(i)
+                    A0 = A[0, 0] - np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                    A0 = A0.reshape(1, -1)
+                    if gs is None:
+                        gs = A0
+                    else:
+                        gs = np.concatenate((gs, A0), axis=0)
+                        # gs = block_diag(gs, A0)
+                    for obs_i in range(len(ops)):
+                        if obs_i < 3:
+                            ops_exci[obs_i][0, 0] = ops[obs_i] - 1 * obs_gs[obs_i + int(i) * 3] * idp
+                            # ops_exci[obs_i][0, 0] = ops[obs_i] - idp
+                            # ops_exci[obs_i][0, 0] = idp
+                        else:
+                            ops_exci[obs_i][0, 0] = ops[obs_i]
+        gs = np.reshape(gs, (-1))
         gs_with_ops = []
-        for op in ops:
-            gs = None
-            nrms = TList(shape=A.size, pattern=A.pattern)
+        for op_exci in ops_exci:
+            gs_with_op = None
+            nrms2 = TList(shape=A.size, pattern=A.pattern)
             for i in A.x_major():
                 with cur_loc(i):
-                    if not nrms.is_changed(0, 0):
-                        nrms.mark_changed(i)
-                        if gs is None:
-                            gs = ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
+                    if not nrms2.is_changed(0, 0):
+                        nrms2.mark_changed(i)
+                        A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
+                        A_op = A_op - 1*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                        A_op = A_op.reshape(1, -1)
+                        if gs_with_op is None:
+                            gs_with_op = A_op
                         else:
-                            # gs = np.concatenate((gs, cmath.exp(2j * i * np.pi/3) * op @ A[0, 0]), axis=0)
-                            gs = np.concatenate((gs, ncon((op, A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))), axis=0)
-            gs = np.reshape(gs, (-1))
-            gs_with_ops.append(gs)
-        basis2 = basis @ P @ N2 @ vectors
-        spectral_weight = []
-        for gs_with_op in gs_with_ops:
-            # sw = None
-            sw = basis2.T @ gs_with_op
-            # for j in range(len(gs_with_op)):
-            #     if sw is None:
-            #         # sw = vectors.T.conjugate() @ P.T.conjugate() @ (basis.T @ gs_with_op[j])
-            #         sw = basis2.T @ gs_with_op[j]
-            #     else:
-            #         # sw += vectors.T.conjugate() @ P.T.conjugate() @ (basis.T @ gs_with_op[j])
-            #         sw += basis2.T @ gs_with_op[j]
-            spectral_weight.append(np.abs(sw)**2)
-        return spectral_weight, ev.real
+                            gs_with_op = np.concatenate((gs_with_op, A_op), axis=0)
+                            # gs_with_op = block_diag(gs_with_op, A_op)
+            gs_with_op = np.reshape(gs_with_op, (-1))
+            gs_with_ops.append(gs_with_op)
+        kxs, kys = make_momentum_path(sim_config.momentum_path)
+        print(f"Output: {output_file}", level=2)
+        res_dtype = np.complex128
+        N = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
+        N2 = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
+
+        # for m in range(len(kxs)):
+        for m in [9]:
+            # sim = iPEPSExciSimulation(config_file, m)
+            sim_config.px = kxs[m]
+            sim_config.py = kys[m]
+            print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
+            for obs_i in range(len(ops)):
+                sA = gs_with_ops[obs_i]
+
+                res = peps.run(np.array(sA))
+                s_disc = gs.T.conjugate() @ res[1].pack_data()
+                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc) ** 2
+                N2[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(obs_gs[obs_i]) ** 2
+
+                # for ix in range(sA.shape[0]):
+                #     import pdb;pdb.set_trace()
+                #     res = peps.run(np.array(sA[ix, :]))
+                #     s_disc = gs[ix, :].T.conjugate() @ res[1].pack_data()
+                #     N[obs_i, m] += (sA[ix, :].T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc)**2
+
+                import pdb; pdb.set_trace()
+                print(f"Norm_Exci: {N[obs_i, m]}")
+                # onp.savez(output_file, N=N)
+        print(N)
+        onp.savez(output_file, N=N)
+        print("Done")
+        print(f"Saved to {output_file}")
+    else:
+        print(f"Read static structure factors from {output_file}.")
+        dat = np.load(output_file)
+        N = dat["N"]
+    return N
 
 
 def evaluate(config_file, momentum_ix):
@@ -343,9 +457,10 @@ def evaluate(config_file, momentum_ix):
     kxs, kys, plot_info = make_momentum_path(
         sim_config.momentum_path, with_plot_info=True
     )
+    tols_norm = [1e-3]*len(kxs)
 
     plot_spectrum = True
-    is_plot = True
+    is_plot = False
     is_savefig = True
     import matplotlib.pyplot as plt
     if not plot_spectrum:
@@ -371,19 +486,25 @@ def evaluate(config_file, momentum_ix):
         for ix in range(len(kxs)):
             try:
                 # ev = evaluate_single(config_file, ix)
-                sqw, ev = evaluate_spectral_weight(config_file, ix)
+                sqw, ev = evaluate_spectral_weight(config_file, ix, tol_norm=tols_norm[ix])
             except:
                 ev = [np.nan]
                 sqw = [np.nan]
             evs_full.append(ev)
             evs.append(ev[0])
             obs.append(sqw)
-
+        tot_sws = [[np.sum(obs[ix][0]) for ix in range(len(kxs))],
+                   [np.sum(obs[ix][1]) for ix in range(len(kxs))],
+                   [np.sum(obs[ix][2]) for ix in range(len(kxs))]]
+        print(repr(np.array(tot_sws)))
+        # print(repr(np.array(sqs_static)))
+        sqs_static = run_sq_static(config_file)
+        print(repr(np.sum(sqs_static, axis=0)))
+        print(evs)
         filename = "dyn_struct_factor"
         foldername = io.get_exci_folder()
         from pathlib import Path
         obs_file = Path(foldername, filename).with_suffix(".npz")
-        fig_name = Path(foldername, "sqw_perp").with_suffix(".pdf")
         fig_name = Path(foldername, "sqw").with_suffix(".pdf")
 
         if not obs_file.exists() or not sim_config.resume:
@@ -391,16 +512,17 @@ def evaluate(config_file, momentum_ix):
                 # return amp*np.sum(np.array([np.exp(-1/eta*(w-ev[ia])**2)*sw[ia] for ia in range(len(sw))]))
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
-            eta0 = 0.02
-            freq = np.arange(0, np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))]))/3, 0.2)
+            eta0 = 0.01
+            max_freq = np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))]))
+            freq = np.linspace(0, max_freq, 200)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
             for i in range(np.shape(XK)[0]):
                 for j in range(np.shape(XK)[1]):
                     for s in range(3):
                         # DSSF_SPEC[i, j] = intensity_func(kxs[j], freq[i], 0.01, evs[j], obs[j][-1])
-                        DSSF_SPEC = DSSF_SPEC.at[i, j, s].set(intensity_func(kxs[j], freq[i], eta0, evs_full[j], obs[j][s]))
-            # np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
+                        DSSF_SPEC = DSSF_SPEC.at[i, j, s].set(intensity_func(q=kxs[j], w=freq[i], eta=eta0, ev=evs_full[j], sw=obs[j][s]))
+            np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
         else:
             data = np.load(obs_file, allow_pickle=True)
             DSSF_SPEC = data["spectrum"]
@@ -408,25 +530,19 @@ def evaluate(config_file, momentum_ix):
             evs = data["elowest"] # inhomogeneous
             XK, FREQ = np.meshgrid(np.arange(DSSF_SPEC.shape[1]), freq)
 
-        # plt.pcolormesh(XK, FREQ, DSSF_SPEC[:, :, 0])
         if is_plot:
-            n_vec = np.array([1, 1, 1])
+            n_vec = np.array([1, 0, 1])
             n_vec = n_vec / np.linalg.norm(n_vec)
             DSSF_SPEC_TRANSVERSE = DSSF_SPEC @ (n_vec**2)
             DSSF_SPEC_TRANSVERSE = DSSF_SPEC_TRANSVERSE / np.max(DSSF_SPEC_TRANSVERSE)
-            # plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE, cmap='turbo', rasterized=True, linewidth=0)
             import matplotlib.colors as colors
-            DSSF_SPEC_TRANSVERSE = DSSF_SPEC_TRANSVERSE / np.max(DSSF_SPEC_TRANSVERSE)
             plt.pcolormesh(XK, FREQ, DSSF_SPEC_TRANSVERSE, cmap="turbo", rasterized=True, linewidth=0,
                            norm=colors.LogNorm(vmin=DSSF_SPEC_TRANSVERSE.min(), vmax=DSSF_SPEC_TRANSVERSE.max()))
-
-            # plt.plot(np.arange(len(kxs)), evs_full, color='b', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
-                # plt.plot(np.arange(len(kxs)), evs_full[j], color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
+            # plt.plot(np.arange(len(kxs)), evs_full[0], color='white', ls='--', label=r"$\text{min}_{\alpha} \omega_\alpha(k)$")
 
             plt.xticks(**plot_info["xticks"])
-            # plt.title(rf"$S^{{\perp}}$ $J_2$={sim_config.model_params['J2']} $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
             plt.title(rf"$S(q,\omega)$ $J_2$={sim_config.model_params['J2']} $\Delta_z$={sim_config.model_params['Delta']} D={sim_config.D}")
-            plt.xlabel("k")
+            plt.xlabel("q")
             plt.ylabel("$\omega$")
             if is_savefig:
                 plt.savefig(fig_name)
