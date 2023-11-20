@@ -47,7 +47,7 @@ from jax import random
 import adpeps.ipeps.config as sim_config
 # from adpeps.ipeps import evaluation, models
 from adpeps.ipeps import models
-from adpeps.ipeps import evaluation_trgl as evaluation
+from adpeps.ipeps import evaluation_trgl_cplx as evaluation
 from adpeps.tensor.contractions import ncon
 from adpeps.utils.ctmtensors import CTMTensors
 from adpeps.utils.printing import print
@@ -101,6 +101,7 @@ class iPEPS:
         self.reinit_env = False
 
         if params is not None:
+            import pdb;pdb.set_trace()
             self.fill(params)
 
         if self.reinit_env:
@@ -147,7 +148,7 @@ class iPEPS:
         # Initialize new boundary tensors
         Cs, Ts = init_ctm_tensors(self.tensors.A, self.tensors.Ad)
         self.tensors = CTMTensors(self.tensors.A, self.tensors.Ad, Cs, Ts)
-
+        import pdb;pdb.set_trace()
         # Perform CTM update steps on the boundary tensors
         conv_fun = self.compute_energy
         self.tensors.stop_gradient()
@@ -194,6 +195,7 @@ class iPEPS:
             elements.size == 2 * self.numel()
         ), f"Size of input vector ({elements.size}) does not \
                 match the number of parameters of the iPEPS ({self.numel()})"
+        elements = elements[:len(elements)//2] + 1j * elements[len(elements)//2:]
         return self.tensors.A.fill(elements, self.d, sim_config.D)
 
     def fill(self, A):

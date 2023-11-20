@@ -176,6 +176,8 @@ class Objective:
         o = onp.array(o)
         v = onp.array(v)
         g = onp.array(g)
+        import pdb;pdb.set_trace()
+        g = g[:len(g)//2] - g[len(g)//2:] * 1j
 
         # Cache the results
         self.cached_v = v

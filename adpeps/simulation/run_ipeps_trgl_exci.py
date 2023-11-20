@@ -167,7 +167,7 @@ def evaluate_single(config_file, momentum_ix):
     return sorted(ev.real)
 
 
-def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
+def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=None):
     def _compute_ev_red_basis(H, N, P, n):
         P = P[:, :n]
         N2 = P.T.conjugate() @ N @ P
@@ -199,13 +199,26 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
     # N = basis.T @ N @ basis
     # H = basis.T @ H @ basis
     # H = H.conjugate()
-
+    N0 = N
     H = 0.5 * (H + H.T.conjugate())
     N = 0.5 * (N + N.T.conjugate())
     ev_N, P = np.linalg.eig(N)
     idx = ev_N.real.argsort()[::-1]
     ev_N = ev_N[idx]
-    selected = (ev_N / ev_N.max()) > tol_norm
+    # import pdb;pdb.set_trace()
+    # import matplotlib.pyplot as plt
+    # selected_pos = ev_N.real > 0
+    # plt.figure(momentum_ix+1)
+    # plt.semilogy(ev_N[selected_pos].real / ev_N.max(), label=f"$N_{{max}}={ev_N.max().real}$")
+    # plt.grid()
+    # plt.legend()
+    # from pathlib import Path
+    # specN_file = Path(io.get_exci_folder(), f"specN/{momentum_ix+1}.pdf")
+    # plt.savefig(specN_file)
+    if n_basis is not None:
+        selected = np.arange(n_basis)
+    else:
+        selected = (ev_N / ev_N.max()) > tol_norm
     P = P[:, idx]
     P = P[:, selected]
     N2 = P.T.conjugate() @ N @ P
@@ -269,6 +282,7 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
                 for obs_i in range(len(ops)):
                     if obs_i < 3:
                         ops_exci[obs_i][0, 0] = ops[obs_i] - 0*obs_gs[obs_i+int(i)*3] * idp
+                        # ops_exci[obs_i][0, 0] = idp
                     else:
                         ops_exci[obs_i][0, 0] = ops[obs_i]
     gs_with_ops = []
@@ -291,19 +305,20 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
         gs_with_op = np.reshape(gs_with_op, (-1))
         gs_with_ops.append(gs_with_op)
 
-    # basis2 = basis @ P @ vectors
-    basis2 = basis @ P @ N2 @ vectors
+    basis2 = basis @ N @ P @ vectors
+    # basis2 = basis @ P @ N2 @ vectors
     print("Basis number: ", vectors.shape[1])
     spectral_weight = []
     for gs_with_op in gs_with_ops[:-1]:
-        # sw = basis2.T @ gs_with_op
         # norm = np.sum(np.abs(basis2.T @ gs_with_ops[-1])**2)
-        norm = 1
-        sw = basis2.T @ gs_with_op / np.sqrt(norm)
-
-        overlap_with_gs = N @ basis.T @ gs_with_ops[-1]
-        print(np.sum(np.abs(overlap_with_gs)**2))
         # print(norm)
+        norm = 1
+        sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
+        # sw = N.T @ basis.T @ gs_with_op.conj() / np.sqrt(norm)
+
+        # overlap_with_gs = N.T @ basis.T @ gs_with_ops[-1].conj()
+        # print(np.sum(np.abs(overlap_with_gs)**2))
+        # print(np.sum(np.abs(sw)**2))
         spectral_weight.append(np.abs(sw)**2)
     return spectral_weight, ev.real
 
@@ -316,7 +331,8 @@ def run_sq_static(config_file):
     from pathlib import Path
     output_file = Path(io.get_exci_folder(), "sq_static.npz")
     print(output_file)
-    if not output_file.exists():
+    if not output_file.exists() or not sim_config.resume:
+    # if not output_file.exists():
         sx = np.array([[0, 0.5], [0.5, 0]])
         sy = np.array([[0, -0.5j], [0.5j, 0]])
         sz = np.array([[0.5, 0], [0, -0.5]])
@@ -369,7 +385,7 @@ def run_sq_static(config_file):
             with cur_loc(i):
                 if not nrms1.is_changed(0, 0):
                     nrms1.mark_changed(i)
-                    A0 = A[0, 0] - np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                    A0 = A[0, 0] - 0*np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
                     A0 = A0.reshape(1, -1)
                     if gs is None:
                         gs = A0
@@ -379,7 +395,6 @@ def run_sq_static(config_file):
                     for obs_i in range(len(ops)):
                         if obs_i < 3:
                             ops_exci[obs_i][0, 0] = ops[obs_i] - 1 * obs_gs[obs_i + int(i) * 3] * idp
-                            # ops_exci[obs_i][0, 0] = ops[obs_i] - idp
                             # ops_exci[obs_i][0, 0] = idp
                         else:
                             ops_exci[obs_i][0, 0] = ops[obs_i]
@@ -393,7 +408,7 @@ def run_sq_static(config_file):
                     if not nrms2.is_changed(0, 0):
                         nrms2.mark_changed(i)
                         A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
-                        A_op = A_op - 1*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                        A_op = A_op - 0*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
                         A_op = A_op.reshape(1, -1)
                         if gs_with_op is None:
                             gs_with_op = A_op
@@ -415,22 +430,23 @@ def run_sq_static(config_file):
             print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
             for obs_i in range(len(ops)):
                 sA = gs_with_ops[obs_i]
-
+                sim_config.px = kxs[m]
+                sim_config.py = kys[m]
                 res = peps.run(np.array(sA))
                 s_disc = gs.T.conjugate() @ res[1].pack_data()
-                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc) ** 2
-                N2[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(obs_gs[obs_i]) ** 2
+                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real
+                N2[obs_i, m] = s_disc
+                # print(f"S{obs_i}, {(sA[:32].T.conjugate() @ res[1].pack_data()[:32])}")
+                # print(f"S{obs_i}, {(sA[32:64].T.conjugate() @ res[1].pack_data()[32:64])}")
+                # print(f"S{obs_i}, {(sA[64:].T.conjugate() @ res[1].pack_data()[64:])}")
+                # print(f"S_stat{obs_i}, {gs[:32].T.conjugate() @ res[1].pack_data()[:32]}")
+                # print(f"S_stat{obs_i}, {gs[32:64].T.conjugate() @ res[1].pack_data()[32:64]}")
+                # print(f"S_stat{obs_i}, {gs[64:].T.conjugate() @ res[1].pack_data()[64:]}")
 
-                # for ix in range(sA.shape[0]):
-                #     import pdb;pdb.set_trace()
-                #     res = peps.run(np.array(sA[ix, :]))
-                #     s_disc = gs[ix, :].T.conjugate() @ res[1].pack_data()
-                #     N[obs_i, m] += (sA[ix, :].T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc)**2
-
-                # import pdb; pdb.set_trace()
                 print(f"Norm_Exci: {N[obs_i, m]}")
-                # onp.savez(output_file, N=N)
-        print(N)
+                print(f"Norm2_Exci: {N2[obs_i, m]}")
+        print(repr(N))
+        print(repr(N2))
         onp.savez(output_file, N=N)
         print("Done")
         print(f"Saved to {output_file}")
@@ -444,7 +460,7 @@ def run_sq_static(config_file):
 def evaluate(config_file, momentum_ix):
     # Default option (-1): evaluate all momenta
     if momentum_ix != -1:
-        return evaluate_single(config_file, momentum_ix)
+        return evaluate_spectral_weight(config_file, momentum_ix)
 
     with open(config_file) as f:
         cfg = safe_load(f)
@@ -457,7 +473,7 @@ def evaluate(config_file, momentum_ix):
         sim_config.momentum_path, with_plot_info=True
     )
     tols_norm = [1e-3]*len(kxs)
-
+    num_basis = [None]*len(kxs)
     plot_spectrum = True
     is_plot = False
     is_savefig = True
@@ -485,7 +501,7 @@ def evaluate(config_file, momentum_ix):
         for ix in range(len(kxs)):
             try:
                 # ev = evaluate_single(config_file, ix)
-                sqw, ev = evaluate_spectral_weight(config_file, ix, tol_norm=tols_norm[ix])
+                sqw, ev = evaluate_spectral_weight(config_file, ix, tol_norm=tols_norm[ix], n_basis=num_basis[ix])
             except:
                 ev = [np.nan]
                 sqw = [np.nan]
@@ -498,7 +514,7 @@ def evaluate(config_file, momentum_ix):
         print(repr(np.array(tot_sws)))
         # print(repr(np.array(sqs_static)))
         sqs_static = run_sq_static(config_file)
-        print(repr(np.sum(sqs_static, axis=0)))
+        print(repr(np.sum(sqs_static, axis=0).real))
         print(evs)
         filename = "dyn_struct_factor"
         foldername = io.get_exci_folder()
@@ -526,7 +542,7 @@ def evaluate(config_file, momentum_ix):
             data = np.load(obs_file, allow_pickle=True)
             DSSF_SPEC = data["spectrum"]
             freq = data["omega"]
-            evs = data["elowest"] # inhomogeneous
+            evs = data["elowest"]  # inhomogeneous
             XK, FREQ = np.meshgrid(np.arange(DSSF_SPEC.shape[1]), freq)
 
         if is_plot:
@@ -589,7 +605,7 @@ class iPEPSExciSimulation:
         print("Grad H", grad_H, level=2)
         print("Grad N", grad_N, level=2)
         print(f"========== \nFinished basis vector {ix+1}/{self.basis_size} \n")
-        return basis.T @ jax.lax.stop_gradient(grad_H), basis.T @ jax.lax.stop_gradient(
+        return basis.T @ jax.lax.stop_gradient(grad_H), basis.T.conj() @ jax.lax.stop_gradient(
             grad_N
         )
 

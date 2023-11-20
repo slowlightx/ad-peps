@@ -205,7 +205,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     ev_N, P = np.linalg.eig(N)
     idx = ev_N.real.argsort()[::-1]
     ev_N = ev_N[idx]
-    selected = (ev_N / ev_N.max()) > 1e-3
+    selected = (ev_N / ev_N.max()) > 1e-5
     P = P[:, idx]
     P = P[:, selected]
     N2 = P.T.conjugate() @ N @ P
@@ -271,7 +271,7 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     gs_with_ops = []
     gs0s = []
     for i_op in range(len(ops)):
-        gs = None
+        gs_with_op = None
         gs0 = None
         nrms = TList(shape=A.size, pattern=A.pattern)
         nrms1 = TList(shape=A.size, pattern=A.pattern)
@@ -282,41 +282,48 @@ def evaluate_spectral_weight(config_file, momentum_ix):
                     nrms1.mark_changed(i)
                     op_1 = ops_exci[i_op][0, 0]
                     op_exci = np.einsum('ia,jb,kc->ijkabc', op_1, idp2, idp2)
-                    op_2 = ops_exci[i_op+num_sites][0, 0]
-                    op_exci += np.exp(1j*(sim_config.px+2*sim_config.py)/3) * np.einsum('ia,jb,kc->ijkabc', idp2, op_2, idp2)
-                    op_3 = ops_exci[i_op+num_sites*2][0, 0]
-                    op_exci += np.exp(1j*(2*sim_config.px+sim_config.py)/3) * np.einsum('ia,jb,kc->ijkabc', idp2, idp2, op_3)
+                    op_2 = np.exp(1j*(sim_config.px+2*sim_config.py)/3) * ops_exci[i_op+num_sites][0, 0]
+                    op_exci += np.einsum('ia,jb,kc->ijkabc', idp2, op_2, idp2)
+                    op_3 = np.exp(1j*(2*sim_config.px+sim_config.py)/3) * ops_exci[i_op+num_sites*2][0, 0]
+                    op_exci += np.einsum('ia,jb,kc->ijkabc', idp2, idp2, op_3)
         op_exci = np.reshape(op_exci, (8, 8))
         for i in A.x_major():
             with cur_loc(i):
                 if not nrms.is_changed(0, 0):
                     nrms.mark_changed(i)
-                    gs = ncon((A[0, 0], op_exci), ([1, -2, -3, -4, -5], [-1, 1]))
+                    A_op = ncon((A[0, 0], op_exci), ([1, -2, -3, -4, -5], [-1, 1]))
                     nrm_gs = ncon((env_0s[0, 0], env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5]))
-                    gs = gs - 0 * ncon((gs, env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])) * env_0s[0, 0] / nrm_gs
-                    A0 = A[0, 0] - 1 * np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0]) * env_0s[0, 0] / nrm_gs
+                    A_op = A_op - 0 * ncon((A_op, env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])) * env_0s[0, 0] / nrm_gs
+                    A0 = A[0, 0] - 0 * np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0]) * env_0s[0, 0] / nrm_gs
                     gs0 = A0
-        gs = np.reshape(gs, (-1))
-        gs_with_ops.append(gs)
+        gs_with_op = np.reshape(A_op, (-1))
+        gs_with_ops.append(gs_with_op)
         gs0 = np.reshape(gs0, (-1))
         gs0s.append(gs0)
 
-    basis2 = basis @ P @ N2 @ vectors
+    basis2 = basis @ N @ P @ vectors
     spectral_weight = []
     for gs_with_op in gs_with_ops:
-        # norm = np.sum(np.abs(basis2.T @ gs0s[0]) ** 2)
+        # norm = np.sqrt(np.sum(np.abs(basis2.T @ gs0s[0].conj()) ** 2))
+        # print(norm)
         norm = 1
-        sw = basis2.T @ gs_with_op / np.sqrt(norm)
+        sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
+        # sw = N.T @ basis.T @ gs_with_op.conjugate() / np.sqrt(norm)
         spectral_weight.append(np.abs(sw)**2)
 
     return spectral_weight, ev.real
 
 
 def run_sq_static(config_file):
+    with open(config_file) as f:
+        cfg = safe_load(f)
+
+    sim_config.from_dict(cfg)
+
     from pathlib import Path
     output_file = Path(io.get_exci_folder(), "sq_static.npz")
     print(output_file)
-    if not output_file.exists():
+    if not output_file.exists() or not sim_config.resume:
         sx = np.array([[0, 0.5], [0.5, 0]])
         sy = np.array([[0, -0.5j], [0.5j, 0]])
         sz = np.array([[0.5, 0], [0, -0.5]])
@@ -339,35 +346,8 @@ def run_sq_static(config_file):
             with cur_loc(i):
                 if not ops_exci[0].is_changed(0, 0):
                     for obs_i in range(num_sites * len(ops)):
-                        ops_exci[obs_i][0, 0] = ops[obs_i % num_sites] - 0 * obs_gs[obs_i] * idp
-        gs_with_ops = []
+                        ops_exci[obs_i][0, 0] = ops[obs_i % num_sites] - 1 * obs_gs[obs_i] * idp
         # gs0s = []
-        for i_op in range(len(ops)):
-            gs_with_op = None
-            # gs0 = None
-            nrms = TList(shape=A.size, pattern=A.pattern)
-            nrms1 = TList(shape=A.size, pattern=A.pattern)
-            op_exci = None
-            for i in A.x_major():
-                with cur_loc(i):
-                    if not nrms1.is_changed(0, 0):
-                        nrms1.mark_changed(i)
-                        op_1 = ops_exci[i_op][0, 0]
-                        op_exci = np.einsum('ia,jb,kc->ijkabc', op_1, idp, idp)
-                        op_2 = ops_exci[i_op + num_sites][0, 0]
-                        op_exci += np.exp(1j * (sim_config.px + 2 * sim_config.py) / 3) * np.einsum('ia,jb,kc->ijkabc',
-                                                                                                    idp, op_2, idp)
-                        op_3 = ops_exci[i_op + num_sites * 2][0, 0]
-                        op_exci += np.exp(1j * (2 * sim_config.px + sim_config.py) / 3) * np.einsum('ia,jb,kc->ijkabc',
-                                                                                                    idp, idp, op_3)
-            op_exci = np.reshape(op_exci, (8, 8))
-            for i in A.x_major():
-                with cur_loc(i):
-                    if not nrms.is_changed(0, 0):
-                        nrms.mark_changed(i)
-                        gs_with_op = ncon((A[0, 0], op_exci), ([1, -2, -3, -4, -5], [-1, 1]))
-            gs_with_op = np.reshape(gs_with_op, (-1))
-            gs_with_ops.append(gs_with_op)
         gs0 = A[0, 0]
         gs0 = np.reshape(gs0, (-1))
         kxs, kys = make_momentum_path(sim_config.momentum_path)
@@ -376,19 +356,46 @@ def run_sq_static(config_file):
         N = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
         N2 = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
         for m in range(len(kxs)):
+        # for m in [9]:
             sim_config.px = kxs[m]
             sim_config.py = kys[m]
-            print(f"momentum_ix={m}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
+            print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
             for obs_i in range(len(ops)):
-                sA = gs_with_ops[obs_i]
+                gs_with_op = None
+                # gs0 = None
+                nrms = TList(shape=A.size, pattern=A.pattern)
+                nrms1 = TList(shape=A.size, pattern=A.pattern)
+                op_exci = None
+                for i in A.x_major():
+                    with cur_loc(i):
+                        if not nrms1.is_changed(0, 0):
+                            nrms1.mark_changed(i)
+                            op_1 = ops_exci[obs_i][0, 0]
+                            op_exci = np.einsum('ia,jb,kc->ijkabc', op_1, idp, idp)
+                            op_2 = np.exp(1j * (sim_config.px + 2 * sim_config.py) / 3) * ops_exci[obs_i + num_sites][0, 0]
+                            op_exci += np.einsum('ia,jb,kc->ijkabc', idp, op_2, idp)
+                            op_3 = np.exp(1j * (2 * sim_config.px + sim_config.py) / 3) * ops_exci[obs_i + num_sites * 2][0, 0]
+                            op_exci += np.einsum('ia,jb,kc->ijkabc', idp, idp, op_3)
+                op_exci = np.reshape(op_exci, (8, 8))
+                for i in A.x_major():
+                    with cur_loc(i):
+                        if not nrms.is_changed(0, 0):
+                            nrms.mark_changed(i)
+                            gs_with_op = ncon((A[0, 0], op_exci), ([1, -2, -3, -4, -5], [-1, 1]))
+                gs_with_op = np.reshape(gs_with_op, (-1))
+                sA = gs_with_op
+
                 res = peps.run(np.array(sA))
                 s_disc = gs0.T.conjugate() @ res[1].pack_data()
-                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc) ** 2
-                N2[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(obs_gs[obs_i]) ** 2
+                # import pdb;pdb.set_trace()
+                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real
+                N2[obs_i, m] = s_disc
 
                 # onp.savez(output_file, N=N)
-        print(N)
-        onp.savez(output_file,  N=N)
+        print(repr(N))
+        print(repr(N2))
+        import pdb;pdb.set_trace()
+        # onp.savez(output_file,  N=N)
         print("Done")
         print(f"Saved to {output_file}")
     else:
@@ -467,8 +474,9 @@ def evaluate(config_file, momentum_ix):
                 # return amp*np.sum(np.array([np.exp(-1/eta*(w-ev[ia])**2)*sw[ia] for ia in range(len(sw))]))
                 return amp*np.sum(np.array([1/np.pi*eta/((w-ev[ia])**2+eta**2)*sw[ia] for ia in range(len(sw))]))
 
-            eta0 = 0.02
-            freq = np.arange(0, np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))])), 0.02)
+            eta0 = 0.01
+            max_freq = np.nanmax(np.array([np.nanmax(np.array(evs_full[xk])) for xk in range(len(kxs))]))
+            freq = np.linspace(0, max_freq, 200)
             XK, FREQ = np.meshgrid(np.arange(len(kxs)), freq)
             DSSF_SPEC = np.zeros((*np.shape(XK), 3))
             for i in range(np.shape(XK)[0]):
@@ -476,7 +484,7 @@ def evaluate(config_file, momentum_ix):
                     for s in range(3):
                         # DSSF_SPEC[i, j] = intensity_func(kxs[j], freq[i], 0.01, evs[j], obs[j][-1])
                         DSSF_SPEC = DSSF_SPEC.at[i, j, s].set(intensity_func(kxs[j], freq[i], eta0, evs_full[j], obs[j][s]))
-            # np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
+            np.savez(obs_file, spectrum=DSSF_SPEC, omega=freq, elowest=evs)
         else:
             data = np.load(obs_file, allow_pickle=True)
             DSSF_SPEC = data["spectrum"]
