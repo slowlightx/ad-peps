@@ -306,19 +306,16 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=No
         gs_with_ops.append(gs_with_op)
 
     basis2 = basis @ N @ P @ vectors
-    # basis2 = basis @ P @ N2 @ vectors
     print("Basis number: ", vectors.shape[1])
     spectral_weight = []
+    rho = vectors.T.conj() @ P.T.conj() @ N @ P @ vectors @ vectors.T.conj() @ P.T.conj() @ N.T.conj() @ P @ vectors
+    # rho = vectors.T.conj() @ P.T.conj() @ N @ N.T.conj() @ P @ vectors
+    norm = np.sum(np.diag(rho))
     for gs_with_op in gs_with_ops[:-1]:
-        # norm = np.sum(np.abs(basis2.T @ gs_with_ops[-1])**2)
         # print(norm)
-        norm = 1
+        # norm = 1
         sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
-        # sw = N.T @ basis.T @ gs_with_op.conj() / np.sqrt(norm)
 
-        # overlap_with_gs = N.T @ basis.T @ gs_with_ops[-1].conj()
-        # print(np.sum(np.abs(overlap_with_gs)**2))
-        # print(np.sum(np.abs(sw)**2))
         spectral_weight.append(np.abs(sw)**2)
     return spectral_weight, ev.real
 
@@ -474,6 +471,9 @@ def evaluate(config_file, momentum_ix):
     )
     tols_norm = [1e-3]*len(kxs)
     num_basis = [None]*len(kxs)
+    # num_basis = [70, 70, 70, 70, 70, 70, 60, 60, 60, 60,
+    #              60, 60, 60, 60, 60, 60, 60, 60, 60, 60,
+    #              70, 70, 70, 70, 70, 70, 70]
     plot_spectrum = True
     is_plot = False
     is_savefig = True

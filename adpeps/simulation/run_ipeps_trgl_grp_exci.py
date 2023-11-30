@@ -303,10 +303,10 @@ def evaluate_spectral_weight(config_file, momentum_ix):
 
     basis2 = basis @ N @ P @ vectors
     spectral_weight = []
+    rho = vectors.T.conj() @ P.T.conj() @ N @ P @ vectors @ vectors.T.conj() @ P.T.conj() @ N.T.conj() @ P @ vectors
+    # rho = vectors.T.conj() @ P.T.conj() @ N @ N.T.conj() @ P @ vectors
+    norm = np.sum(np.diag(rho))
     for gs_with_op in gs_with_ops:
-        # norm = np.sqrt(np.sum(np.abs(basis2.T @ gs0s[0].conj()) ** 2))
-        # print(norm)
-        norm = 1
         sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
         # sw = N.T @ basis.T @ gs_with_op.conjugate() / np.sqrt(norm)
         spectral_weight.append(np.abs(sw)**2)
