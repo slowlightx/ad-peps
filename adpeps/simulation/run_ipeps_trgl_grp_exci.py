@@ -167,7 +167,7 @@ def evaluate_single(config_file, momentum_ix):
     return sorted(ev.real)
 
 
-def evaluate_spectral_weight(config_file, momentum_ix):
+def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=None):
     def _compute_ev_red_basis(H, N, P, n):
         P = P[:, :n]
         N2 = P.T.conjugate() @ N @ P
@@ -205,7 +205,11 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     ev_N, P = np.linalg.eig(N)
     idx = ev_N.real.argsort()[::-1]
     ev_N = ev_N[idx]
-    selected = (ev_N / ev_N.max()) > 1e-5
+    # selected = (ev_N / ev_N.max()) > 1e-3
+    if n_basis is not None:
+        selected = np.arange(n_basis)
+    else:
+        selected = (ev_N / ev_N.max()) > tol_norm
     P = P[:, idx]
     P = P[:, selected]
     N2 = P.T.conjugate() @ N @ P
@@ -292,9 +296,10 @@ def evaluate_spectral_weight(config_file, momentum_ix):
                 if not nrms.is_changed(0, 0):
                     nrms.mark_changed(i)
                     A_op = ncon((A[0, 0], op_exci), ([1, -2, -3, -4, -5], [-1, 1]))
-                    nrm_gs = ncon((env_0s[0, 0], env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5]))
-                    A_op = A_op - 0 * ncon((A_op, env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])) * env_0s[0, 0] / nrm_gs
-                    A0 = A[0, 0] - 0 * np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0]) * env_0s[0, 0] / nrm_gs
+                    A0 = A[0, 0]
+                    # nrm_gs = ncon((env_0s[0, 0], env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5]))
+                    # A_op = A_op - 0 * ncon((A_op, env_0s[0, 0]), ([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])) * env_0s[0, 0] / nrm_gs
+                    # A0 = A[0, 0] - 0 * np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0]) * env_0s[0, 0] / nrm_gs
                     gs0 = A0
         gs_with_op = np.reshape(A_op, (-1))
         gs_with_ops.append(gs_with_op)
@@ -308,7 +313,6 @@ def evaluate_spectral_weight(config_file, momentum_ix):
     norm = np.sum(np.diag(rho))
     for gs_with_op in gs_with_ops:
         sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
-        # sw = N.T @ basis.T @ gs_with_op.conjugate() / np.sqrt(norm)
         spectral_weight.append(np.abs(sw)**2)
 
     return spectral_weight, ev.real
@@ -323,7 +327,8 @@ def run_sq_static(config_file):
     from pathlib import Path
     output_file = Path(io.get_exci_folder(), "sq_static.npz")
     print(output_file)
-    if not output_file.exists() or not sim_config.resume:
+    # if not output_file.exists() or not sim_config.resume:
+    if not output_file.exists():
         sx = np.array([[0, 0.5], [0.5, 0]])
         sy = np.array([[0, -0.5j], [0.5j, 0]])
         sz = np.array([[0.5, 0], [0, -0.5]])
@@ -356,7 +361,6 @@ def run_sq_static(config_file):
         N = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
         N2 = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
         for m in range(len(kxs)):
-        # for m in [9]:
             sim_config.px = kxs[m]
             sim_config.py = kys[m]
             print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
@@ -387,21 +391,19 @@ def run_sq_static(config_file):
 
                 res = peps.run(np.array(sA))
                 s_disc = gs0.T.conjugate() @ res[1].pack_data()
-                # import pdb;pdb.set_trace()
                 N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real
                 N2[obs_i, m] = s_disc
 
-                # onp.savez(output_file, N=N)
-        print(repr(N))
-        print(repr(N2))
-        import pdb;pdb.set_trace()
-        # onp.savez(output_file,  N=N)
+        # print(repr(N))
+        # print(repr(N2))
+        onp.savez(output_file,  N=N)
         print("Done")
         print(f"Saved to {output_file}")
     else:
         print(f"Read static structure factors from {output_file}.")
         dat = np.load(output_file)
         N = dat["N"]
+    print(repr(N))
     return N
 
 
@@ -420,7 +422,11 @@ def evaluate(config_file, momentum_ix):
     kxs, kys, plot_info = make_momentum_path(
         sim_config.momentum_path, with_plot_info=True
     )
-
+    tols_norm = [1e-3]*len(kxs)
+    num_basis = [None]*len(kxs)
+    # num_basis = [60, 60, 60, 60, 60, 60, 60, 60, 60, 60,
+    #              60, 60, 60, 60, 60, 60, 60, 60, 60, 60,
+    #              60, 60, 70, 70, 70, 70, 70]
     plot_spectrum = True
     is_plot = False
     is_savefig = True
@@ -444,11 +450,10 @@ def evaluate(config_file, momentum_ix):
         evs = []
         evs_full = []
         obs = []
-        sqs_stat = []
         for ix in range(len(kxs)):
             try:
                 # ev = evaluate_single(config_file, ix)
-                sqw, ev = evaluate_spectral_weight(config_file, ix)
+                sqw, ev = evaluate_spectral_weight(config_file, ix, tol_norm=tols_norm[ix], n_basis=num_basis[ix])
             except:
                 ev = [np.nan]
                 sqw = [np.nan]

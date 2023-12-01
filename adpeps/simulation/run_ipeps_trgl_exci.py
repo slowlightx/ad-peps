@@ -199,7 +199,6 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=No
     # N = basis.T @ N @ basis
     # H = basis.T @ H @ basis
     # H = H.conjugate()
-    N0 = N
     H = 0.5 * (H + H.T.conjugate())
     N = 0.5 * (N + N.T.conjugate())
     ev_N, P = np.linalg.eig(N)
@@ -281,8 +280,7 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=No
                 nrms1.mark_changed(i)
                 for obs_i in range(len(ops)):
                     if obs_i < 3:
-                        ops_exci[obs_i][0, 0] = ops[obs_i] - 0*obs_gs[obs_i+int(i)*3] * idp
-                        # ops_exci[obs_i][0, 0] = idp
+                        ops_exci[obs_i][0, 0] = ops[obs_i]
                     else:
                         ops_exci[obs_i][0, 0] = ops[obs_i]
     gs_with_ops = []
@@ -294,10 +292,8 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=No
                 if not nrms2.is_changed(0, 0):
                     nrms2.mark_changed(i)
                     A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
-                    norm_gs = np.einsum('uijkl,uijkl', env_0s[0, 0], env_0s[0, 0])
-                    A_op = A_op - 0 * np.einsum('uijkl,uijkl', A_op, env_0s[0, 0]) * env_0s[0, 0] / norm_gs
-                    # norm_gs = np.einsum('uijkl,uijkl', A[0, 0], A[0, 0])
-                    # A_op = A_op - 1*np.einsum('uijkl,uijkl', A_op, A[0, 0]) * A[0, 0] / norm_gs
+                    # norm_gs = np.einsum('uijkl,uijkl', env_0s[0, 0], env_0s[0, 0])
+                    # A_op = A_op - 0 * np.einsum('uijkl,uijkl', A_op, env_0s[0, 0]) * env_0s[0, 0] / norm_gs
                     if gs_with_op is None:
                         gs_with_op = A_op
                     else:
@@ -312,8 +308,6 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3, n_basis=No
     # rho = vectors.T.conj() @ P.T.conj() @ N @ N.T.conj() @ P @ vectors
     norm = np.sum(np.diag(rho))
     for gs_with_op in gs_with_ops[:-1]:
-        # print(norm)
-        # norm = 1
         sw = basis2.T @ gs_with_op.conj() / np.sqrt(norm)
 
         spectral_weight.append(np.abs(sw)**2)
@@ -328,8 +322,8 @@ def run_sq_static(config_file):
     from pathlib import Path
     output_file = Path(io.get_exci_folder(), "sq_static.npz")
     print(output_file)
-    if not output_file.exists() or not sim_config.resume:
-    # if not output_file.exists():
+    # if not output_file.exists() or not sim_config.resume:
+    if not output_file.exists():
         sx = np.array([[0, 0.5], [0.5, 0]])
         sy = np.array([[0, -0.5j], [0.5j, 0]])
         sz = np.array([[0.5, 0], [0, -0.5]])
@@ -382,7 +376,7 @@ def run_sq_static(config_file):
             with cur_loc(i):
                 if not nrms1.is_changed(0, 0):
                     nrms1.mark_changed(i)
-                    A0 = A[0, 0] - 0*np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                    A0 = A[0, 0]
                     A0 = A0.reshape(1, -1)
                     if gs is None:
                         gs = A0
@@ -392,7 +386,6 @@ def run_sq_static(config_file):
                     for obs_i in range(len(ops)):
                         if obs_i < 3:
                             ops_exci[obs_i][0, 0] = ops[obs_i] - 1 * obs_gs[obs_i + int(i) * 3] * idp
-                            # ops_exci[obs_i][0, 0] = idp
                         else:
                             ops_exci[obs_i][0, 0] = ops[obs_i]
         gs = np.reshape(gs, (-1))
@@ -405,7 +398,7 @@ def run_sq_static(config_file):
                     if not nrms2.is_changed(0, 0):
                         nrms2.mark_changed(i)
                         A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
-                        A_op = A_op - 0*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                        # A_op = A_op - 0*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
                         A_op = A_op.reshape(1, -1)
                         if gs_with_op is None:
                             gs_with_op = A_op
@@ -421,7 +414,6 @@ def run_sq_static(config_file):
         N2 = onp.zeros((len(ops), len(kxs)), dtype=res_dtype)
 
         for m in range(len(kxs)):
-        # for m in [9]:
             sim_config.px = kxs[m]
             sim_config.py = kys[m]
             print(f"momentum_ix={m+1}, kx={sim_config.px/np.pi:.5}pi, ky={sim_config.py/np.pi:.5}pi")
@@ -433,17 +425,9 @@ def run_sq_static(config_file):
                 s_disc = gs.T.conjugate() @ res[1].pack_data()
                 N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real
                 N2[obs_i, m] = s_disc
-                # print(f"S{obs_i}, {(sA[:32].T.conjugate() @ res[1].pack_data()[:32])}")
-                # print(f"S{obs_i}, {(sA[32:64].T.conjugate() @ res[1].pack_data()[32:64])}")
-                # print(f"S{obs_i}, {(sA[64:].T.conjugate() @ res[1].pack_data()[64:])}")
-                # print(f"S_stat{obs_i}, {gs[:32].T.conjugate() @ res[1].pack_data()[:32]}")
-                # print(f"S_stat{obs_i}, {gs[32:64].T.conjugate() @ res[1].pack_data()[32:64]}")
-                # print(f"S_stat{obs_i}, {gs[64:].T.conjugate() @ res[1].pack_data()[64:]}")
 
-                print(f"Norm_Exci: {N[obs_i, m]}")
-                print(f"Norm2_Exci: {N2[obs_i, m]}")
-        print(repr(N))
-        print(repr(N2))
+        # print(repr(N))
+        # print(repr(N2))
         onp.savez(output_file, N=N)
         print("Done")
         print(f"Saved to {output_file}")
@@ -451,6 +435,7 @@ def run_sq_static(config_file):
         print(f"Read static structure factors from {output_file}.")
         dat = np.load(output_file)
         N = dat["N"]
+    print(repr(N))
     return N
 
 
