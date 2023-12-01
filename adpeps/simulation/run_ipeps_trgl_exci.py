@@ -292,7 +292,8 @@ def evaluate_spectral_weight(config_file, momentum_ix, tol_norm=1e-3):
         gs_with_ops.append(gs_with_op)
 
     # basis2 = basis @ P @ vectors
-    basis2 = basis @ P @ N2 @ vectors
+    # basis2 = basis @ P @ N2 @ vectors
+    basis2 = basis @ N @ P @ vectors
     print("Basis number: ", vectors.shape[1])
     spectral_weight = []
     for gs_with_op in gs_with_ops[:-1]:
@@ -369,7 +370,7 @@ def run_sq_static(config_file):
             with cur_loc(i):
                 if not nrms1.is_changed(0, 0):
                     nrms1.mark_changed(i)
-                    A0 = A[0, 0] - np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                    A0 = A[0, 0] - 0*np.einsum('uijkl,uijkl', A[0, 0], env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
                     A0 = A0.reshape(1, -1)
                     if gs is None:
                         gs = A0
@@ -393,7 +394,7 @@ def run_sq_static(config_file):
                     if not nrms2.is_changed(0, 0):
                         nrms2.mark_changed(i)
                         A_op = ncon((op_exci[0, 0], A[0, 0]), ([-1, 1], [1, -2, -3, -4, -5]))
-                        A_op = A_op - 1*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
+                        A_op = A_op - 0*np.einsum('uijkl,uijkl', A_op, env_0s[0, 0].conjugate()) * env_0s[0, 0] / np.einsum('uijkl,uijkl', env_0s[0, 0].conjugate(), env_0s[0, 0])
                         A_op = A_op.reshape(1, -1)
                         if gs_with_op is None:
                             gs_with_op = A_op
@@ -418,11 +419,11 @@ def run_sq_static(config_file):
 
                 res = peps.run(np.array(sA))
                 s_disc = gs.T.conjugate() @ res[1].pack_data()
-                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc) ** 2
-                N2[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - np.abs(obs_gs[obs_i]) ** 2
+                N[obs_i, m] = (sA.T.conjugate() @ res[1].pack_data()).real - 1*np.abs(s_disc) ** 2
+                N2[obs_i, m] = s_disc
 
                 # for ix in range(sA.shape[0]):
-                #     import pdb;pdb.set_trace()
+                #     # import pdb;pdb.set_trace()
                 #     res = peps.run(np.array(sA[ix, :]))
                 #     s_disc = gs[ix, :].T.conjugate() @ res[1].pack_data()
                 #     N[obs_i, m] += (sA[ix, :].T.conjugate() @ res[1].pack_data()).real - np.abs(s_disc)**2
@@ -430,7 +431,8 @@ def run_sq_static(config_file):
                 # import pdb; pdb.set_trace()
                 print(f"Norm_Exci: {N[obs_i, m]}")
                 # onp.savez(output_file, N=N)
-        print(N)
+        print(repr(N))
+        print(repr(N2))
         onp.savez(output_file, N=N)
         print("Done")
         print(f"Saved to {output_file}")
