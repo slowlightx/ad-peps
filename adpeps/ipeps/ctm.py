@@ -504,8 +504,8 @@ def get_projectors(T1: int, T2, chi):
     v = np.reshape(v.T, [Rho_shape[3], Rho_shape[4], Rho_shape[5], -1])
     inv_s = diag_inv(np.sqrt(s))
 
-    P1 = ncon([T2, v, inv_s], "proj_P1")
-    P2 = ncon([T1, u, inv_s], "proj_P2")
+    P1 = ncon([T2, v.conj(), inv_s], "proj_P1")
+    P2 = ncon([T1, u.conj(), inv_s], "proj_P2")
 
     P1 = P1.transpose([3, 0, 1, 2])
     P2 = P2.transpose([3, 0, 1, 2])

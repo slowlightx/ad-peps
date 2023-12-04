@@ -158,8 +158,8 @@ class Objective:
 
         # Cast the regular numpy array into a Jax numpy array for gradient tracking
         v = np.array(v)
-        v_cplx = v[:len(v)//2] + v[len(v)//2:]*1j
-        v = v / np.max(np.abs(v_cplx))
+        # v_cplx = v[:len(v)//2] + v[len(v)//2:]*1j
+        # v = v / np.max(np.abs(v_cplx))
 
         if (
             self.cached_jac is not None
@@ -176,8 +176,8 @@ class Objective:
         o = onp.array(o)
         v = onp.array(v)
         g = onp.array(g)
-        import pdb;pdb.set_trace()
-        g = g[:len(g)//2] - g[len(g)//2:] * 1j
+        # import pdb;pdb.set_trace()
+        # g = g[:len(g)//2] - g[len(g)//2:] * 1j
 
         # Cache the results
         self.cached_v = v

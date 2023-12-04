@@ -81,11 +81,13 @@ def prepare(config_file):
     sim_config.from_dict(cfg)
     base_file = io.get_exci_base_file()
     print(base_file)
-    peps = iPEPS()
-
-    gs_file = io.get_gs_file()
-    loaded_sim = np.load(gs_file, allow_pickle=True)
-    peps = loaded_sim["peps"].item()
+    if sim_config.init_from_tensors:
+        # init with raw tensors from tn-torch or random
+        peps = iPEPS()
+    else:
+        gs_file = io.get_gs_file()
+        loaded_sim = np.load(gs_file, allow_pickle=True)
+        peps = loaded_sim["peps"].item()
 
     sim_config.ctm_max_iter = 30
     sim_config.ctm_conv_tol = 1e-12

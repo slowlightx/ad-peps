@@ -7,7 +7,7 @@ import argparse
 from jax.config import config
 
 # from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci
-from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci, run_ipeps_trgl_grp_gs, run_ipeps_trgl_grp_exci, run_ipeps_trgl_gs_cplx
+from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci, run_ipeps_trgl_grp_gs, run_ipeps_trgl_grp_exci, run_ipeps_trgl_cplx_gs
 
 config.update("jax_enable_x64", True)
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         if args.lat_gs == "trgl":
             run_ipeps_trgl_gs.run(args.config_file)
         elif args.lat_gs == "trgl_cplx":
-            run_ipeps_trgl_gs_cplx.run(args.config_file)
+            run_ipeps_trgl_cplx_gs.run(args.config_file)
         elif args.lat_gs == "trgl_grp":
             run_ipeps_trgl_grp_gs.run(args.config_file)
         elif args.lat_gs == "dstt_trgl":
