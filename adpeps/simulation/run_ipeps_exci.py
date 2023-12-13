@@ -393,7 +393,7 @@ class iPEPSExciSimulation:
         print("Grad H", grad_H, level=2)
         print("Grad N", grad_N, level=2)
         print(f"========== \nFinished basis vector {ix+1}/{self.basis_size} \n")
-        return basis.T @ jax.lax.stop_gradient(grad_H), basis.T @ jax.lax.stop_gradient(
+        return basis.T.conj() @ jax.lax.stop_gradient(grad_H), basis.T.conj() @ jax.lax.stop_gradient(
             grad_N
         )
 
