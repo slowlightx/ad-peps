@@ -62,20 +62,62 @@ def run(config_file: str, momentum_ix: int):
     print(f"Output: {output_file}", level=2)
     basis_size = sim.basis_size
     res_dtype = np.complex128
-    H = onp.zeros((basis_size, basis_size), dtype=res_dtype)
-    N = onp.zeros((basis_size, basis_size), dtype=res_dtype)
 
-    for m in range(basis_size):
+    # Run part of basis
+    if getattr(sim_config, "basis_range", None) is not None:
+        ib0 = max(sim_config.basis_range[0], 0)
+        ib1 = min(sim_config.basis_range[1], basis_size - 1)
+        from pathlib import Path
+        import math
+        basis_range = range(ib0, ib1+1)
+        output_file_part = Path(output_folder,
+                                f"{momentum_ix+1}_{sim_config.px/math.pi:.5}_{sim_config.py/math.pi:.5}_basis{ib0}-{ib1}.npz")
+    else:  # Run all basis
+        basis_range = range(basis_size)
+        output_file_part = output_file
+
+    if output_file_part.exists() and sim_config.resume:
+        dat = onp.load(output_file_part)
+        H = dat['H']
+        N = dat['N']
+        if 'marked_basis' in dat.keys():
+            marked_basis = dat['marked_basis']
+        else:
+            marked_basis = onp.ones(basis_size, dtype=bool)
+    else:
+        H = onp.zeros((basis_size, len(basis_range)), dtype=res_dtype)
+        N = onp.zeros((basis_size, len(basis_range)), dtype=res_dtype)
+        marked_basis = onp.zeros(len(basis_range), dtype=bool)
+
+    # inds_basis: indices of unfinished basis
+    inds_basis = [ib for ib in basis_range if not marked_basis[ib]]
+    for im in range(len(inds_basis)):
+        m = inds_basis[im]
         grad_H, grad_N = sim(m)
-        H[:, m] = grad_H
-        N[:, m] = grad_N
-        onp.savez(output_file, H=H, N=N)
+        H[:, im] = grad_H
+        N[:, im] = grad_N
+        marked_basis[im] = True
+        onp.savez(output_file_part, H=H, N=N, marked_basis=marked_basis, basis_range=basis_range)
 
     print(H)
     print(N)
-    onp.savez(output_file, H=H, N=N)
+    print([inds_basis[ib] for ib in range(len(basis_range)) if not marked_basis[ib]])
     print("Done")
-    print(f"Saved to {output_file}")
+    print(f"Saved to {output_file_part}")
+    #  if part, update the full matrices
+    if getattr(sim_config, "basis_range", None) is not None:
+        dat_full = onp.load(output_file)
+        H_full = dat_full['H']
+        N_full = dat_full['N']
+        marked_basis_full = dat_full['marked_basis']
+        ib0 = max(sim_config.basis_range[0], 0)
+        ib1 = min(sim_config.basis_range[1], basis_size - 1)
+        H_full[:, ib0:(ib1+1)] = H
+        N_full[:, ib0:(ib1+1)] = N
+        marked_basis_full[ib0:(ib1+1)] = marked_basis
+        onp.savez(output_file, H=H_full, N=N_full, marked_basis=marked_basis_full)
+        print("Done")
+        print(f"Updated to {output_file}")
 
 
 def prepare(config_file):
