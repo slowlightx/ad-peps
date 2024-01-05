@@ -7,7 +7,7 @@ import argparse
 from jax.config import config
 
 # from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci
-from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci, run_ipeps_trgl_grp_gs, run_ipeps_trgl_grp_exci, run_ipeps_trgl_cplx_gs
+from .simulation import run_ipeps_exci, run_ipeps_gs, run_ipeps_trgl_gs, run_ipeps_trgl_exci, run_ipeps_dstt_trgl_gs, run_ipeps_dstt_trgl_exci, run_ipeps_trgl_grp_gs, run_ipeps_trgl_grp_exci,run_ipeps_hc_grp_gs, run_ipeps_hc_grp_exci,run_ipeps_kitaev_gs, run_ipeps_kitaev_exci, run_ipeps_trgl_cplx_gs
 
 config.update("jax_enable_x64", True)
 
@@ -116,6 +116,10 @@ if __name__ == "__main__":
             run_ipeps_trgl_grp_gs.run(args.config_file)
         elif args.lat_gs == "dstt_trgl":
             run_ipeps_dstt_trgl_gs.run(args.config_file)
+        elif args.lat_gs == "kitaev":
+            run_ipeps_kitaev_gs.run(args.config_file)
+        elif args.lat_gs == "hc_grp":
+            run_ipeps_hc_grp_gs.run(args.config_file)
         else:
             run_ipeps_gs.run(args.config_file)
 
@@ -151,6 +155,26 @@ if __name__ == "__main__":
                     run_ipeps_trgl_grp_exci.run(args.config_file, args.momentum_ix - 1)
                 else:
                     run_ipeps_trgl_grp_exci.run_sq_static(args.config_file)
+        elif args.lat == "hc_grp":
+            if args.evaluate:
+                run_ipeps_hc_grp_exci.evaluate(args.config_file, args.momentum_ix - 1)
+            elif args.init:
+                run_ipeps_hc_grp_exci.prepare(args.config_file)
+            else:
+                if args.momentum_ix > 0:
+                    run_ipeps_hc_grp_exci.run(args.config_file, args.momentum_ix - 1)
+                else:
+                    run_ipeps_hc_grp_exci.run_sq_static(args.config_file)
+        elif args.lat == "hc_kitaev":
+            if args.evaluate:
+                run_ipeps_kitaev_exci.evaluate(args.config_file, args.momentum_ix - 1)
+            elif args.init:
+                run_ipeps_kitaev_exci.prepare(args.config_file)
+            else:
+                if args.momentum_ix > 0:
+                    run_ipeps_kitaev_exci.run(args.config_file, args.momentum_ix - 1)
+                else:
+                    run_ipeps_kitaev_exci.run_sq_static(args.config_file)
         else:
             if args.evaluate:
                 run_ipeps_exci.evaluate(args.config_file, args.momentum_ix - 1)

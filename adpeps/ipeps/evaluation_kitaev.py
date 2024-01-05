@@ -50,88 +50,32 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
     """
     A = tensors.A
     Ad = tensors.Ad
-    # Ehs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
-    # Evs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
-    # Eds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
-    # En2x1ys = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
-    # En1x2ys = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
-    # E1x1ys = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
-    # Ehs_exci = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
-    # Evs_exci = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
-    # Eds_exci = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
-    # nrmhs = TList(shape=A.size, pattern=A.pattern)  # Horizontal terms
-    # nrmvs = TList(shape=A.size, pattern=A.pattern)  # Vertical terms
-    # nrmds = TList(shape=A.size, pattern=A.pattern)  # Diagonal terms
-    # nrmn2x1ys = TList(shape=A.size, pattern=A.pattern)  # NNN_3x2 terms
-    # nrmn1x2ys = TList(shape=A.size, pattern=A.pattern)  # NNN_2x3 terms
-    # nrm1x1ys = TList(shape=A.size, pattern=A.pattern)  # NNN Diagonal
-    # # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in tensors.observables]
-    # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
+    #                 x-dir (1,0)
+    #                /
+    #         1a -- 1b
+    #        /        \
+    # 0a -- 0b         3a -- 3b       =>     T0(a,b) -- T1(a,b)
+    #        \        /                       |          |
+    #         2a -- 2b                       T2(a,b) -- T2(a,b)
+    #                \
+    #                 y-dir (0,1)
 
-    #                   a1 -- b1
-    #                 / |   /
-    #                /  |  /                          ------ T1           ----- (1,0)
-    #       a0 -- b0 -- c1                           /       /           /       /
-    #       |   / |   / |              =>    T0(a,b,c)      /          (0,0)    /
-    #       |  /  |  /  |                          /       T3          /      (1,1)
-    #       c0 -- a3 -- b3                        /       /           /       /
-    #       |   / |   /                          T2 ------          (0,1) ----
-    #       |  /  |  /
-    # a2 -- b2 -- b3
-    # |   /
-    # |  /
-    # c2
-
+    # NN
     E0a0bs = TList(shape=A.size, pattern=A.pattern)
     E0b1as = TList(shape=A.size, pattern=A.pattern)
     E0b2as = TList(shape=A.size, pattern=A.pattern)
 
-    E0a1as = TList(shape=A.size, pattern=A.pattern)
-    E0a2as = TList(shape=A.size, pattern=A.pattern)
-    E1a2as = TList(shape=A.size, pattern=A.pattern)
-    E0b1bs = TList(shape=A.size, pattern=A.pattern)
-    E0b2bs = TList(shape=A.size, pattern=A.pattern)
-    E1b2bs = TList(shape=A.size, pattern=A.pattern)
-
-    E0b3as = TList(shape=A.size, pattern=A.pattern)
-    E1a2bs = TList(shape=A.size, pattern=A.pattern)
-    E1b2as = TList(shape=A.size, pattern=A.pattern)
-
     nrm0a0bs = TList(shape=A.size, pattern=A.pattern)
     nrm0b1as = TList(shape=A.size, pattern=A.pattern)
     nrm0b2as = TList(shape=A.size, pattern=A.pattern)
-
-    nrm0a1as = TList(shape=A.size, pattern=A.pattern)
-    nrm0a2as = TList(shape=A.size, pattern=A.pattern)
-    nrm1a2as = TList(shape=A.size, pattern=A.pattern)
-    nrm0b1bs = TList(shape=A.size, pattern=A.pattern)
-    nrm0b2bs = TList(shape=A.size, pattern=A.pattern)
-    nrm1b2bs = TList(shape=A.size, pattern=A.pattern)
-
-    nrm0b3as = TList(shape=A.size, pattern=A.pattern)
-    nrm1a2bs = TList(shape=A.size, pattern=A.pattern)
-    nrm1b2as = TList(shape=A.size, pattern=A.pattern)
-
-    # obs_evs = [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]]
     obs_evs = {s: [TList(shape=A.size, pattern=A.pattern) for _ in [sigmaz, sigmap, sigmam]] for s in ['a', 'b']}
-
-    hpattern = np.array([[0]])
-    E0s = Hamiltonian(pattern=hpattern)
+    E0s = Hamiltonian(pattern=H.pattern)
 
     for i in A.x_major():
         with cur_loc(i):
             if not E0a0bs.is_changed(0, 0):
                 # Construct all the 2-body density matrices individually for the energy evaluation
-                if abs(sim_config.model_params['J2']) > 0:
-                    if abs(sim_config.model_params['J3']) > 0:
-                        ro0a0b, ro0b1a, ro0b2a, ro0a1a, ro0a2a, ro1a2a, ro0b1b, ro0b2b, ro1b2b, ro0b3a, ro1a2b, ro1b2a = get_dms(tensors)
-                    else:
-                        ro0a0b, ro0b1a, ro0b2a, ro0a1a, ro0a2a, ro1a2a, ro0b1b, ro0b2b, ro1b2b = get_dms(tensors)
-                else:
-                    if abs(sim_config.model_params['J3']) > 0:
-                        ro0a0b, ro0b1a, ro0b2a, ro0b3a, ro1a2b, ro1b2a = get_dms(tensors)
-                    else:
-                        ro0a0b, ro0b1a, ro0b2a = get_dms(tensors)
+                ro0a0b, ro0b1a, ro0b2a = get_dms(tensors)
                 nrm0a0b = np.trace(np.reshape(ro0a0b[0], (4, 4))).real
                 nrm0b1a = np.trace(np.reshape(ro0b1a[0], (4, 4))).real
                 nrm0b2a = np.trace(np.reshape(ro0b2a[0], (4, 4))).real
@@ -150,59 +94,6 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                 E0s[((1, 1), (2, 1))] = E0b1as[0, 0][0]
                 E0s[((1, 1), (1, 2))] = E0b2as[0, 0][0]
 
-                if abs(sim_config.model_params['J2']) > 0:
-                    nrm0a1a = np.trace(np.reshape(ro0a1a[0], (4, 4))).real
-                    nrm0a2a = np.trace(np.reshape(ro0a2a[0], (4, 4))).real
-                    nrm1a2a = np.trace(np.reshape(ro1a2a[0], (4, 4))).real
-                    nrm0b1b = np.trace(np.reshape(ro0b1b[0], (4, 4))).real
-                    nrm0b2b = np.trace(np.reshape(ro0b2b[0], (4, 4))).real
-                    nrm1b2b = np.trace(np.reshape(ro1b2b[0], (4, 4))).real
-
-                    nrm0a1as[0, 0] = nrm0a1a
-                    nrm0a2as[0, 0] = nrm0a2a
-                    nrm1a2as[0, 0] = nrm1a2a
-                    nrm0b1bs[0, 0] = nrm0b1b
-                    nrm0b2bs[0, 0] = nrm0b2b
-                    nrm1b2bs[0, 0] = nrm1b2b
-                    ro0a1a = ro0a1a / nrm0a1a
-                    ro0a2a = ro0a2a / nrm0a2a
-                    ro1a2a = ro1a2a / nrm1a2a
-                    ro0b1b = ro0b1b / nrm0b1b
-                    ro0b2b = ro0b2b / nrm0b2b
-                    ro1b2b = ro1b2b / nrm1b2b
-
-                    E0a1as[0, 0] = ncon([ro0a1a, H[(0, 0), (2, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E0a2as[0, 0] = ncon([ro0a2a, H[(0, 0), (1, 2)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E1a2as[0, 0] = ncon([ro1a2a, H[(0, 0), (-1, 1)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E0b1bs[0, 0] = ncon([ro0b1b, H[(1, 1), (3, 2)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E0b2bs[0, 0] = ncon([ro0b2b, H[(1, 1), (2, 3)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E1b2bs[0, 0] = ncon([ro1b2b, H[(1, 1), (0, 2)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E0s[((0, 0), (2, 1))] = E0a1as[0, 0][0]
-                    E0s[((0, 0), (1, 2))] = E0a2as[0, 0][0]
-                    E0s[((0, 0), (-1, 1))] = E1a2as[0, 0][0]
-                    E0s[((1, 1), (3, 2))] = E0b1bs[0, 0][0]
-                    E0s[((1, 1), (2, 3))] = E0b2bs[0, 0][0]
-                    E0s[((1, 1), (0, 2))] = E1b2bs[0, 0][0]
-
-                if abs(sim_config.model_params['J3']) > 0:
-                    nrm0b3a = np.trace(np.reshape(ro0b3a[0], (4, 4))).real
-                    nrm1a2b = np.trace(np.reshape(ro1a2b[0], (4, 4))).real
-                    nrm1b2a = np.trace(np.reshape(ro1b2a[0], (4, 4))).real
-
-                    nrm0b3as[0, 0] = nrm0b3a
-                    nrm1a2bs[0, 0] = nrm1a2b
-                    nrm1b2as[0, 0] = nrm1b2a
-                    ro0b3a = ro0b3a / nrm0b3a
-                    ro1a2b = ro1a2b / nrm1a2b
-                    ro1b2a = ro1b2a / nrm1b2a
-
-                    E0b3as[0, 0] = ncon([ro0b3a, H[(1, 1), (3, 3)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E1a2bs[0, 0] = ncon([ro1a2b, H[(0, 0), (0, 2)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E1b2as[0, 0] = ncon([ro1b2a, H[(0, 0), (2, 0)]], ([1, 2, 3, 4], [1, 2, 3, 4])).real
-                    E0s[((1, 1), (3, 3))] = E0b3as[0, 0][0]
-                    E0s[((0, 0), (0, 2))] = E1a2bs[0, 0][0]
-                    E0s[((0, 0), (2, 0))] = E1b2as[0, 0][0]
-
                 if measure_obs:
                     for s in ['a', 'b']:
                         ro_1site = get_one_phys_site_dm(tensors.Cs,tensors.Ts,A,Ad,stk=s)
@@ -214,26 +105,8 @@ def get_obs(H, tensors, measure_obs=True, only_gs=False):
                             except:
                                 obs_evs[s][obs_i][0, 0] = np.nan
 
-    if abs(sim_config.model_params['J2']) > 0:
-        if abs(sim_config.model_params['J3']) > 0:
-            E = (E0a0bs.mean() + E0b1as.mean() + E0b2as.mean()
-                 + E0a1as.mean() + E0a2as.mean() + E1a2as.mean() + E0b1bs.mean() + E0b2bs.mean() + E1b2bs.mean()
-                 + E0b3as.mean() + E1a2bs.mean() + E1b2as.mean()) / 12.
-            nrm = (nrm0a0bs.mean() + nrm0b1as.mean() + nrm0b2as.mean()
-                 + nrm0a1as.mean() + nrm0a2as.mean() + nrm1a2as.mean() + nrm0b1bs.mean() + nrm0b2bs.mean() + nrm1b2bs.mean()
-                 + nrm0b3as.mean() + nrm1a2bs.mean() + nrm1b2as.mean()) / 12.
-        else:
-            E = (E0a0bs.mean() + E0b1as.mean() + E0b2as.mean()
-                 + E0a1as.mean() + E0a2as.mean() + E1a2as.mean() + E0b1bs.mean() + E0b2bs.mean() + E1b2bs.mean()) / 9.
-            nrm = (nrm0a0bs.mean() + nrm0b1as.mean() + nrm0b2as.mean()
-                 + nrm0a1as.mean() + nrm0a2as.mean() + nrm1a2as.mean() + nrm0b1bs.mean() + nrm0b2bs.mean() + nrm1b2bs.mean()) / 9.
-    else:
-        if abs(sim_config.model_params['J3']) > 0:
-            E = (E0a0bs.mean() + E0b1as.mean() + E0b2as.mean() + E0b3as.mean() + E1a2bs.mean() + E1b2as.mean()) / 6.
-            nrm = (nrm0a0bs.mean() + nrm0b1as.mean() + nrm0b2as.mean() + nrm0b3as.mean() + nrm1a2bs.mean() + nrm1b2as.mean()) / 6.
-        else:
-            E = (E0a0bs.mean() + E0b1as.mean() + E0b2as.mean()) / 3.
-            nrm = (nrm0a0bs.mean() + nrm0b1as.mean() + nrm0b2as.mean()) / 3.
+        E = (E0a0bs.mean() + E0b1as.mean() + E0b2as.mean()) / 3.
+        nrm = (nrm0a0bs.mean() + nrm0b1as.mean() + nrm0b2as.mean()) / 3.
 
     return E, nrm, obs_evs, E0s
 
@@ -593,15 +466,15 @@ def get_dms(ts, only_gs=False, only_nn=False):
     ro0a0b = _get_dm_1x1(*s_tensors)
     ro0b1a = _get_dm_2x1(*h_tensors, stk=['b', 'a'])
     ro0b2a = _get_dm_1x2(*v_tensors, stk=['b', 'a'])
-    if abs(sim_config.model_params['J2']) > 0:
+    sim_params = sim_config.model_params
+    if abs(getattr(sim_params, 'J2', 0)) > 0:
         ro0a1a = _get_dm_2x1(*h_tensors, stk=['a', 'a'])
         ro0a2a = _get_dm_1x2(*v_tensors, stk=['a', 'a'])
         ro1a2a = _get_dm_2x2(*p_tensors, stk=['n', 'a', 'a', 'n'])
         ro0b1b = _get_dm_2x1(*h_tensors, stk=['b', 'b'])
         ro0b2b = _get_dm_1x2(*v_tensors, stk=['b', 'b'])
         ro1b2b = _get_dm_2x2(*p_tensors, stk=['n', 'b', 'b', 'n'])
-
-        if abs(sim_config.model_params['J3']) > 0:
+        if abs(getattr(sim_params, 'J3', 0)) > 0:
             ro0b3a = _get_dm_2x2(*p_tensors, stk=['b', 'n', 'n', 'a'])
             ro1a2b = _get_dm_2x2(*p_tensors, stk=['n', 'a', 'b', 'n'])
             ro1b2a = _get_dm_2x2(*p_tensors, stk=['n', 'b', 'a', 'n'])
@@ -609,7 +482,7 @@ def get_dms(ts, only_gs=False, only_nn=False):
         else:
             return ro0a0b, ro0b1a, ro0b2a, ro0a1a, ro0a2a, ro1a2a, ro0b1b, ro0b2b, ro1b2b
     else:
-        if abs(sim_config.model_params['J3']) > 0:
+        if abs(getattr(sim_params, 'J3', 0)) > 0:
             ro0b3a = _get_dm_2x2(*p_tensors, stk=['b', 'n', 'n', 'a'])
             ro1a2b = _get_dm_2x2(*p_tensors, stk=['n', 'a', 'b', 'n'])
             ro1b2a = _get_dm_2x2(*p_tensors, stk=['n', 'b', 'a', 'n'])
